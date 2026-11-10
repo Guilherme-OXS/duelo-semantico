@@ -1053,34 +1053,20 @@ window.DUELO = window.DUELO || {};
 
     const champScore = gameState.champion ? gameState.champion.score : 15;
     const nextLevel = gameState.hintsUsed + 1;
+    const excludeWords = (gameState.testedWords || []).map(function (t) { return t.word; });
 
     try {
       if (pendingStartPromise) await pendingStartPromise;
 
-      let tier1 = "";
-      let bridge = null;
-      let tier3 = null;
-
+      let bundle = null;
       const Api = window.DUELO.Api;
       if (gameState.matchToken && Api) {
-        const res = await Api.requestHint(gameState.matchToken, nextLevel, champScore);
-        tier1 = res.tier1;
-        bridge = res.bridge;
-        tier3 = res.tier3;
+        bundle = await Api.requestHint(gameState.matchToken, nextLevel, champScore, excludeWords);
       } else if (Api && !Api.isOfflineFallback()) {
         showInlineAlert("Aguardando conexão com o servidor.");
         return;
       } else {
-        const secretEntry = window.DUELO_DATA.WORDS[gameState.secretWord] || {
-          category: "Cotidiano",
-          hint: "Palavra da lingua portuguesa.",
-          links: []
-        };
-        tier1 = 'DICA 1 (Tema & Tamanho): Categoria "' + secretEntry.category + '" | Possui ' + gameState.secretWord.length + ' letras.';
-        bridge = nextLevel >= 2 ? window.DUELO.Engine.getBridgeHint(gameState.secretWord, champScore) : null;
-        tier3 = nextLevel >= 3
-          ? 'DICA 3 (Definicao & Inicial): Comeca com a letra "' + gameState.secretWord.charAt(0).toUpperCase() + '" — ' + secretEntry.hint
-          : null;
+        bundle = window.DUELO.Engine.getHintBundle(gameState.secretWord, champScore, nextLevel, excludeWords);
       }
 
       window.DUELO.Audio.hint();
@@ -1088,12 +1074,12 @@ window.DUELO = window.DUELO || {};
       hintBox.classList.remove("hidden");
 
       let html = '<div class="space-y-1">';
-      html += '<p class="text-xs font-semibold text-amber-300">' + tier1 + '</p>';
-      if (gameState.hintsUsed >= 2 && bridge) {
-        html += '<p class="text-xs text-sky-300">DICA 2 (Palavra-Ponte Mais Proxima): Experimente testar <strong>' + bridge.displayWord + '</strong> (' + bridge.score.toFixed(1) + '%).</p>';
+      html += '<p class="text-xs font-semibold text-amber-300">' + bundle.tier1 + '</p>';
+      if (gameState.hintsUsed >= 2 && bundle.tier2) {
+        html += '<p class="text-xs text-sky-300">' + bundle.tier2 + '</p>';
       }
-      if (gameState.hintsUsed >= 3 && tier3) {
-        html += '<p class="text-xs text-emerald-400">' + tier3 + '</p>';
+      if (gameState.hintsUsed >= 3 && bundle.tier3) {
+        html += '<p class="text-xs text-emerald-400">' + bundle.tier3 + '</p>';
       }
       html += '</div>';
 

@@ -114,8 +114,8 @@ window.DUELO.Api = (function () {
     evaluateWords: function (matchToken, words) {
       return postApi({ action: "evaluate", matchToken: matchToken, words: words });
     },
-    requestHint: function (matchToken, hintLevel, champScore) {
-      return postApi({ action: "hint", matchToken: matchToken, hintLevel: hintLevel, champScore: champScore });
+    requestHint: function (matchToken, hintLevel, champScore, excludeWords) {
+      return postApi({ action: "hint", matchToken: matchToken, hintLevel: hintLevel, champScore: champScore, excludeWords: excludeWords });
     },
     revealSecret: function (matchToken) {
       return postApi({ action: "reveal", matchToken: matchToken });
@@ -125,3 +125,4 @@ window.DUELO.Api = (function () {
     }
   };
 })();
+

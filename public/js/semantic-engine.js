@@ -525,14 +525,14 @@ window.DUELO.Engine = (function () {
     }
 
     const cos = cosineSimilarity(e1.vec, e2.vec);
-    let score = cos * 44.0;
+    let score = cos * 42.0;
 
     if (e1.cluster === e2.cluster && e1.cluster !== "geral") {
-      score += 15.0;
+      score += 13.0;
     }
 
     if (e1.sub === e2.sub && e1.sub !== "geral" && e1.sub !== "inferred") {
-      score += 16.0;
+      score += 13.0;
     }
 
     const links1 = e1.links || [];
@@ -542,9 +542,12 @@ window.DUELO.Engine = (function () {
     const idxInGuess = links1.indexOf(w2);
 
     if (idxInSecret !== -1 || idxInGuess !== -1) {
-      const bestRank = idxInSecret !== -1 ? idxInSecret : idxInGuess;
-      const rankBonus = Math.max(0, 8.0 - bestRank * 0.8);
-      score += 12.0 + rankBonus;
+      const bestRank = idxInSecret !== -1 && idxInGuess !== -1
+        ? Math.min(idxInSecret, idxInGuess)
+        : (idxInSecret !== -1 ? idxInSecret : idxInGuess);
+      const rankBonus = Math.max(0, 7.5 - bestRank * 1.35);
+      const mutualBonus = idxInSecret !== -1 && idxInGuess !== -1 ? 3.5 : 0;
+      score += 10.5 + rankBonus + mutualBonus;
     }
 
     let sharedCount = 0;
@@ -556,11 +559,11 @@ window.DUELO.Engine = (function () {
       }
     }
     if (sharedCount > 0) {
-      score += Math.min(10.0, sharedCount * 2.5);
+      score += Math.min(7.5, sharedCount * 2.0);
     }
 
     if (w1.length >= 4 && w2.length >= 4 && w1.slice(0, 4) === w2.slice(0, 4)) {
-      score += 3.5;
+      score += 2.0;
     }
 
     score += deterministicJitter(w1, w2);
@@ -627,12 +630,18 @@ window.DUELO.Engine = (function () {
     return pool[idx] || "carro";
   }
 
-  function getBridgeHint(secretWordCanonical, currentChampionScore) {
+  function getBridgeHint(secretWordCanonical, currentChampionScore, excludeWords) {
     const wordsDb = window.DUELO_DATA.WORDS;
+    const excluded = {};
+    (Array.isArray(excludeWords) ? excludeWords : []).forEach(function (w) {
+      const c = stripAccents(w);
+      if (c) excluded[c] = true;
+    });
+
     const candidates = Object.keys(wordsDb)
-      .filter(function (w) { return w !== secretWordCanonical; })
+      .filter(function (w) { return w !== secretWordCanonical && !excluded[w]; })
       .map(function (w) { return calculateProximity(w, secretWordCanonical, false); })
-      .filter(function (res) { return res && res.score > currentChampionScore + 2.0; })
+      .filter(function (res) { return res && res.score > currentChampionScore + 1.2 && res.score < 100; })
       .sort(function (a, b) { return a.score - b.score; });
 
     if (candidates.length > 0) {
@@ -640,6 +649,62 @@ window.DUELO.Engine = (function () {
       return candidates[stepIdx];
     }
     return null;
+  }
+
+  function escapeHtmlText(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function getHintBundle(secretWordCanonical, currentChampionScore, hintLevel, excludeWords) {
+    const wordsDb = window.DUELO_DATA.WORDS || {};
+    const entry = wordsDb[secretWordCanonical] || {
+      category: "Cotidiano",
+      hint: "Palavra da lingua portuguesa.",
+      links: []
+    };
+    const level = Math.max(1, Math.min(3, Number(hintLevel) || 1));
+    const tier1 = 'DICA 1 (Tema & Tamanho): Categoria "' + escapeHtmlText(entry.category) + '" | Possui ' + secretWordCanonical.length + ' letras.';
+
+    let tier2 = null;
+    if (level >= 2) {
+      const bridge = getBridgeHint(secretWordCanonical, currentChampionScore, excludeWords);
+      if (bridge) {
+        tier2 = 'DICA 2 (Palavra-Ponte Mais Próxima): Experimente testar <strong>' + escapeHtmlText(bridge.displayWord) + '</strong> (' + bridge.score.toFixed(1) + '%).';
+      } else {
+        const excluded = {};
+        (Array.isArray(excludeWords) ? excludeWords : []).forEach(function (w) {
+          const c = stripAccents(w);
+          if (c) excluded[c] = true;
+        });
+        const links = Array.isArray(entry.links) ? entry.links : [];
+        const lateral = links.find(function (lnk) {
+          const c = stripAccents(lnk);
+          return c && c !== secretWordCanonical && !excluded[c];
+        });
+        if (lateral) {
+          tier2 = 'DICA 2 (Conexão Lateral): Além do que você já testou, ela se liga diretamente a <strong>' + escapeHtmlText(lateral.toUpperCase()) + '</strong>.';
+        } else {
+          const lastChar = secretWordCanonical.charAt(secretWordCanonical.length - 1).toUpperCase();
+          tier2 = 'DICA 2 (Estrutura da Palavra): Termina com a letra <strong>"' + escapeHtmlText(lastChar) + '"</strong> e tem ' + secretWordCanonical.length + ' letras.';
+        }
+      }
+    }
+
+    let tier3 = null;
+    if (level >= 3) {
+      tier3 = 'DICA 3 (Definição & Inicial): Começa com a letra <strong>"' + escapeHtmlText(secretWordCanonical.charAt(0).toUpperCase()) + '"</strong> — ' + escapeHtmlText(entry.hint);
+    }
+
+    return {
+      tier1: tier1,
+      tier2: tier2,
+      tier3: tier3
+    };
   }
 
   async function evaluateWordAsync(rawInput, secretWordCanonical) {
@@ -656,6 +721,7 @@ window.DUELO.Engine = (function () {
     calculateProximity: calculateProximity,
     fetchOnlineDefinition: fetchOnlineDefinition,
     getDailySecretWord: getDailySecretWord,
-    getBridgeHint: getBridgeHint
+    getBridgeHint: getBridgeHint,
+    getHintBundle: getHintBundle
   };
 })();

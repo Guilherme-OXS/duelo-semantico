@@ -290,26 +290,19 @@ function handleHint(body) {
   const Engine = getEngine();
   const hintLevel = Math.max(1, Math.min(3, Number(body.hintLevel) || 1));
   const champScore = Number.isFinite(Number(body.champScore)) ? Number(body.champScore) : 15;
+  const excludeWords = Array.isArray(body.excludeWords)
+    ? body.excludeWords.map((w) => cleanText(w, 64)).filter(Boolean).slice(0, 120)
+    : [];
 
   return withCustomEntrySync(token.customEntry, () => {
-    const meta = buildSecretMeta(token.secretWord, token.customEntry);
-    const tier1 = 'DICA 1 (Tema & Tamanho): Categoria "' + meta.category + '" | Possui ' + token.secretWord.length + " letras.";
-    let bridge = null;
-    if (hintLevel >= 2) {
-      const b = Engine.getBridgeHint(token.secretWord, champScore);
-      if (b) bridge = { displayWord: b.displayWord, score: b.score };
-    }
-    const tier3 = hintLevel >= 3
-      ? 'DICA 3 (Definicao & Inicial): Comeca com a letra "' + token.secretWord.charAt(0).toUpperCase() + '" — ' + meta.hint
-      : null;
-
+    const bundle = Engine.getHintBundle(token.secretWord, champScore, hintLevel, excludeWords);
     return {
       status: 200,
       payload: {
         ok: true,
-        tier1: tier1,
-        bridge: bridge,
-        tier3: tier3
+        tier1: bundle.tier1,
+        tier2: bundle.tier2,
+        tier3: bundle.tier3
       }
     };
   });
@@ -420,3 +413,4 @@ export async function dispatchGameAction(body) {
 
   return { status: 400, payload: { ok: false, error: "Acao desconhecida." } };
 }
+
