@@ -290,7 +290,17 @@
               </p>
             </div>
             <div class="flex flex-col gap-2 mt-3">
-              <button type="button" id="btn-duel-create-room" class="btn-primary w-full">
+              <div>
+                <label for="duel-room-time-limit" class="text-xs text-zinc-400">Tempo Limite por Rodada (Sala Criada)</label>
+                <select id="duel-room-time-limit" class="select-control w-full mt-1">
+                  <option value="15">15 segundos (Relampago)</option>
+                  <option value="30" selected>30 segundos (Padrao)</option>
+                  <option value="45">45 segundos</option>
+                  <option value="60">60 segundos (Tatico)</option>
+                  <option value="0">Sem limite de tempo</option>
+                </select>
+              </div>
+              <button type="button" id="btn-duel-create-room" class="btn-primary w-full mt-1">
                 Criar Sala Privada (Gerar Codigo)
               </button>
               <div class="flex gap-2 mt-1">
@@ -331,7 +341,10 @@
               <span id="duel-my-label" class="text-xs font-bold uppercase tracking-wider text-amber-300">Voce</span>
               <strong id="duel-my-score" class="font-mono text-white">0 pts</strong>
             </div>
-            <span id="duel-round-badge" class="tag-pill">Rodada 1</span>
+            <div class="flex flex-col items-center gap-1">
+              <span id="duel-round-badge" class="tag-pill">Rodada 1</span>
+              <span id="duel-turn-timer" class="duel-timer-pill">30s</span>
+            </div>
             <div class="duel-player-banner is-right">
               <span id="duel-opp-label" class="text-xs font-bold uppercase tracking-wider text-sky-300">Adversario</span>
               <strong id="duel-opp-score" class="font-mono text-white">0 pts</strong>

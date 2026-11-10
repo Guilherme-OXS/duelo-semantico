@@ -776,6 +776,32 @@ html, body {
   margin-bottom: 1rem;
 }
 
+.duel-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.7rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #7DD3FC;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+}
+
+.duel-timer-pill.is-warning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #FDE68A;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.duel-timer-pill.is-danger {
+  background: rgba(239, 68, 68, 0.22);
+  color: #FCA5A5;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
 /* ==========================================================================
    OTIMIZACOES DEDICADAS PARA CELULAR (MOBILE FIRST POLISH <= 640px)
    ========================================================================== */

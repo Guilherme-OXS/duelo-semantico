@@ -23,12 +23,15 @@ window.DUELO.DuelMode = (function () {
   let bc = null;
   let searchTimer = null;
   let searchCountdown = 10;
+  let turnTimer = null;
 
   let state = {
     phase: "lobby", // "lobby" | "searching" | "waiting_room" | "playing" | "finished"
     role: "host",   // "host" | "guest"
     isBot: false,
     roomCode: "",
+    turnDuration: 30, // 30s nas partidas normais; personalizavel em salas privadas (0 = sem limite)
+    turnRemaining: 30,
     myName: "Voce",
     oppName: "Adversario",
     secretWord: "",
@@ -75,7 +78,60 @@ window.DUELO.DuelMode = (function () {
     return "AET-" + num;
   }
 
+  function stopTurnTimer() {
+    if (turnTimer) {
+      clearInterval(turnTimer);
+      turnTimer = null;
+    }
+  }
+
+  function updateTurnTimerUI() {
+    const el = qs("#duel-turn-timer");
+    if (!el) return;
+    if (!state.turnDuration || state.turnDuration <= 0) {
+      el.textContent = "Sem limite";
+      el.className = "duel-timer-pill";
+      return;
+    }
+    el.textContent = state.turnRemaining + "s";
+    if (state.turnRemaining <= 5) {
+      el.className = "duel-timer-pill is-danger";
+    } else if (state.turnRemaining <= 10) {
+      el.className = "duel-timer-pill is-warning";
+    } else {
+      el.className = "duel-timer-pill";
+    }
+  }
+
+  function startTurnTimer() {
+    stopTurnTimer();
+    if (state.phase !== "playing" || !state.turnDuration || state.turnDuration <= 0) {
+      state.turnRemaining = 0;
+      updateTurnTimerUI();
+      return;
+    }
+    state.turnRemaining = state.turnDuration;
+    updateTurnTimerUI();
+
+    turnTimer = setInterval(function () {
+      if (state.phase !== "playing") {
+        stopTurnTimer();
+        return;
+      }
+      state.turnRemaining = Math.max(0, state.turnRemaining - 1);
+      updateTurnTimerUI();
+
+      if (state.turnRemaining <= 0) {
+        stopTurnTimer();
+        if (state.role === "host") {
+          handleTurnTimeoutOnHost();
+        }
+      }
+    }, 1000);
+  }
+
   function cleanupConnections() {
+    stopTurnTimer();
     if (searchTimer) {
       clearInterval(searchTimer);
       searchTimer = null;
@@ -146,9 +202,11 @@ window.DUELO.DuelMode = (function () {
       sendToOpponent({
         type: "match_start",
         hostName: state.myName,
-        roomCode: state.roomCode
+        roomCode: state.roomCode,
+        turnDuration: state.turnDuration
       });
       window.DUELO.Audio.newChampion();
+      startTurnTimer();
       render();
     } else if (msg.type === "match_start" && state.role === "guest") {
       if (searchTimer) {
@@ -157,9 +215,11 @@ window.DUELO.DuelMode = (function () {
       }
       state.isBot = false;
       state.oppName = msg.hostName || "Anfitriao";
+      state.turnDuration = typeof msg.turnDuration === "number" ? msg.turnDuration : 30;
       state.phase = "playing";
       resetMatchData(false);
       window.DUELO.Audio.newChampion();
+      startTurnTimer();
       render();
     } else if (msg.type === "submit_word" && state.role === "host") {
       // Guest enviou a palavra dele
@@ -173,6 +233,8 @@ window.DUELO.DuelMode = (function () {
       render();
     } else if (msg.type === "round_result" && state.role === "guest") {
       applyRoundResultFromHost(msg);
+    } else if (msg.type === "round_timeout_skip" && state.role === "guest") {
+      applyTimeoutSkip(msg.round);
     } else if (msg.type === "duel_error" && state.role === "guest") {
       showDuelAlert(msg.message);
       state.myReady = false;
@@ -181,7 +243,13 @@ window.DUELO.DuelMode = (function () {
     } else if (msg.type === "rematch_request") {
       if (state.role === "host") {
         resetMatchData(true);
-        sendToOpponent({ type: "match_start", hostName: state.myName, roomCode: state.roomCode });
+        sendToOpponent({
+          type: "match_start",
+          hostName: state.myName,
+          roomCode: state.roomCode,
+          turnDuration: state.turnDuration
+        });
+        startTurnTimer();
         render();
       }
     }
@@ -207,9 +275,12 @@ window.DUELO.DuelMode = (function () {
   // ==========================================================================
   function createPrivateRoom() {
     cleanupConnections();
+    const limitSel = qs("#duel-room-time-limit");
+    const customSec = limitSel ? parseInt(limitSel.value, 10) : 30;
     state.myName = getMyNickname();
     state.role = "host";
     state.isBot = false;
+    state.turnDuration = isNaN(customSec) ? 30 : customSec;
     state.roomCode = generateShortCode();
     state.phase = "waiting_room";
     resetMatchData(true);
@@ -313,6 +384,7 @@ window.DUELO.DuelMode = (function () {
       if (becameHost) return;
       becameHost = true;
       state.role = "host";
+      state.turnDuration = 30; // Partidas normais usam 30 segundos
       state.roomCode = "FILA-RAPIDA";
       resetMatchData(true);
 
@@ -385,11 +457,13 @@ window.DUELO.DuelMode = (function () {
     state.myName = getMyNickname();
     state.role = "host";
     state.isBot = true;
+    state.turnDuration = 30; // Partidas normais contra Bot usam 30 segundos
     state.oppName = "Bot Estrategista";
     state.roomCode = "ARENA-BOT";
     state.phase = "playing";
     resetMatchData(true);
     window.DUELO.Audio.newChampion();
+    startTurnTimer();
     render();
   }
 
@@ -498,29 +572,81 @@ window.DUELO.DuelMode = (function () {
     return pick.word;
   }
 
+  function createTimeoutEval() {
+    return {
+      word: "tempo-esgotado",
+      displayWord: "TEMPO ESGOTADO",
+      originalInput: "",
+      correctedFrom: null,
+      category: "Tempo Esgotado",
+      source: "timeout",
+      score: 0.0,
+      isExact: false,
+      isTimeout: true,
+      tier: "cold",
+      tierLabel: "Nao respondeu a tempo",
+      explanation: "Tempo da rodada esgotado."
+    };
+  }
+
+  async function handleTurnTimeoutOnHost() {
+    if (state.role !== "host" || state.phase !== "playing") return;
+
+    if (!state.myReady && !state.oppReady) {
+      // Nenhum dos dois respondeu: avanca a rodada sem pontuar
+      sendToOpponent({ type: "round_timeout_skip", round: state.round });
+      applyTimeoutSkip(state.round);
+      return;
+    }
+
+    const myEval = state.myReady
+      ? await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord)
+      : createTimeoutEval();
+
+    const oppEval = state.oppReady
+      ? await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord)
+      : createTimeoutEval();
+
+    await resolveRoundWithEvals(myEval, oppEval);
+  }
+
+  function applyTimeoutSkip(roundNum) {
+    state.myReady = false;
+    state.oppReady = false;
+    state.myPendingWord = null;
+    state.oppPendingWord = null;
+    state.round += 1;
+    showDuelAlert("Tempo da rodada " + roundNum + " esgotado! Ninguem enviou palavra. Nova rodada iniciada!");
+    startTurnTimer();
+    render();
+  }
+
   async function tryResolveRoundOnHost() {
     if (state.role !== "host" || !state.myReady || !state.oppReady) return;
+    stopTurnTimer();
 
     const myEval = await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord);
     const oppEval = await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord);
 
-    if (!myEval || !oppEval) return;
+    await resolveRoundWithEvals(myEval, oppEval);
+  }
 
-    // Verifica duplicidade entre os dois jogadores na mesma rodada
+  async function resolveRoundWithEvals(myEval, oppEval) {
+    if (!myEval || !oppEval) return;
+    stopTurnTimer();
+
     const hostWonRound = myEval.score >= oppEval.score;
     const roundBest = hostWonRound ? myEval : oppEval;
     const roundBestOwner = hostWonRound ? "host" : "guest";
     const roundBestName = hostWonRound ? state.myName : state.oppName;
 
-    // Registra palavras usadas
-    if (state.usedWords.indexOf(myEval.word) === -1) state.usedWords.push(myEval.word);
-    if (state.usedWords.indexOf(oppEval.word) === -1) state.usedWords.push(oppEval.word);
+    if (!myEval.isTimeout && state.usedWords.indexOf(myEval.word) === -1) state.usedWords.push(myEval.word);
+    if (!oppEval.isTimeout && state.usedWords.indexOf(oppEval.word) === -1) state.usedWords.push(oppEval.word);
 
-    // Determina quem fica no Trono Central (compara contra o Campeao anterior se ja existir)
     let newChampion = state.champion;
     let throneChanged = false;
 
-    if (!newChampion || roundBest.score >= newChampion.score) {
+    if (!roundBest.isTimeout && (!newChampion || roundBest.score >= newChampion.score)) {
       throneChanged = !newChampion || newChampion.word !== roundBest.word;
       newChampion = {
         word: roundBest.word,
@@ -534,9 +660,8 @@ window.DUELO.DuelMode = (function () {
       };
     }
 
-    // Pontua quem ganhou a disputa da rodada
-    if (hostWonRound) state.scores.host += 1;
-    else state.scores.guest += 1;
+    if (hostWonRound && !myEval.isTimeout) state.scores.host += 1;
+    else if (!hostWonRound && !oppEval.isTimeout) state.scores.guest += 1;
 
     let finished = false;
     let winnerRole = null;
@@ -550,8 +675,8 @@ window.DUELO.DuelMode = (function () {
       hostWord: myEval,
       guestWord: oppEval,
       roundWinnerRole: roundBestOwner,
-      throneWord: newChampion.displayWord,
-      throneScore: newChampion.score
+      throneWord: newChampion ? newChampion.displayWord : "--",
+      throneScore: newChampion ? newChampion.score : 0
     };
 
     const payload = {
@@ -588,6 +713,7 @@ window.DUELO.DuelMode = (function () {
     state.oppPendingWord = null;
 
     if (payload.finished) {
+      stopTurnTimer();
       state.phase = "finished";
       state.winnerRole = payload.winnerRole;
       state.revealedSecret = payload.revealedSecret;
@@ -600,6 +726,7 @@ window.DUELO.DuelMode = (function () {
       state.round += 1;
       if (payload.throneChanged) window.DUELO.Audio.newChampion();
       else window.DUELO.Audio.championKept();
+      startTurnTimer();
     }
 
     render();
@@ -635,7 +762,8 @@ window.DUELO.DuelMode = (function () {
     const copyBtn = qs("#btn-duel-copy-link");
 
     if (state.phase === "waiting_room") {
-      if (titleEl) titleEl.textContent = "Sala Privada Aberta (Voce e o Servidor)";
+      const timeDesc = state.turnDuration > 0 ? state.turnDuration + "s por rodada" : "Sem limite de tempo";
+      if (titleEl) titleEl.textContent = "Sala Privada Aberta (" + timeDesc + ")";
       if (descEl) descEl.textContent = "Envie o codigo ou o link abaixo para seu amigo entrar no Lado Direito — ou clique em 'Enfrentar Bot Agora'.";
       if (codeBadge) {
         codeBadge.textContent = state.roomCode;
@@ -659,6 +787,7 @@ window.DUELO.DuelMode = (function () {
     qs("#duel-my-score").textContent = myScore + " pts";
     qs("#duel-opp-score").textContent = oppScore + " pts";
     qs("#duel-round-badge").textContent = "Rodada " + state.round;
+    updateTurnTimerUI();
 
     // Estado de espera de cada lado
     const myStatus = qs("#duel-my-status");
@@ -730,7 +859,13 @@ window.DUELO.DuelMode = (function () {
               startMatchAgainstBot();
             } else if (state.role === "host") {
               resetMatchData(true);
-              sendToOpponent({ type: "match_start", hostName: state.myName, roomCode: state.roomCode });
+              sendToOpponent({
+                type: "match_start",
+                hostName: state.myName,
+                roomCode: state.roomCode,
+                turnDuration: state.turnDuration
+              });
+              startTurnTimer();
               render();
             } else {
               sendToOpponent({ type: "rematch_request" });
