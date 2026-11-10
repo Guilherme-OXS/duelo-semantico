@@ -37,6 +37,8 @@ html, body {
   font-family: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Utilitarios Independentes */
@@ -773,6 +775,85 @@ html, body {
   border-radius: 12px;
   margin-bottom: 1rem;
 }
+
+/* ==========================================================================
+   OTIMIZACOES DEDICADAS PARA CELULAR (MOBILE FIRST POLISH <= 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 0.85rem 0.75rem 2.25rem;
+  }
+
+  .surface-card {
+    padding: 0.95rem;
+    border-radius: 12px;
+  }
+
+  .stats-strip {
+    width: 100%;
+  }
+
+  .select-control {
+    width: 100%;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  .word-input {
+    font-size: 16px; /* Evita zoom automatico no Safari iOS */
+  }
+
+  .main-tabs-bar {
+    display: flex;
+    width: 100%;
+  }
+
+  .main-tab-btn {
+    flex: 1 1 0%;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.6rem;
+    text-align: center;
+  }
+
+  .duel-slot-card {
+    padding: 0.9rem;
+  }
+
+  .vs-divider-badge {
+    margin: 0 auto;
+  }
+
+  .champion-word-display {
+    font-size: 1.35rem;
+    word-break: break-word;
+  }
+
+  .victory-word-heading {
+    font-size: 1.7rem;
+    word-break: break-word;
+  }
+
+  .duel-scoreboard-bar {
+    gap: 0.5rem;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .history-duel-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ranking-mini-bar {
+    width: 64px;
+  }
+
+  .duel-room-code-pill {
+    font-size: 1.35rem;
+    padding: 0.5rem 1rem;
+  }
+}
+
 
 
 
