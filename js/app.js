@@ -399,9 +399,9 @@ window.DUELO = window.DUELO || {};
 
     updateUI();
 
-    // Consulta assincrona da definicao online no Dicionario Aberto para palavras nao convencionais
-    if (!winner.isExact) {
-      window.DUELO.Engine.fetchOnlineDefinition(winner.word).then(function (onlineDef) {
+    // Consulta definicao no Dicionario Online apenas se a palavra ainda nao tinha explicacao rica local
+    if (!winner.isExact && winner.source === "api") {
+      window.DUELO.Engine.fetchOnlineDefinition(winner.originalInput || winner.word).then(function (onlineDef) {
         if (onlineDef && onlineDef.definition && gameState.champion && gameState.champion.word === winner.word) {
           const metaEl = qs("#champ-word-meta");
           if (metaEl) {

@@ -12,7 +12,7 @@
 window.DUELO = window.DUELO || {};
 
 window.DUELO.Engine = (function () {
-  const CACHE_KEY = "duelo_semantic_api_cache_v3";
+  const CACHE_KEY = "duelo_semantic_api_cache_v4";
   let apiCache = {};
 
   try {
@@ -292,14 +292,14 @@ window.DUELO.Engine = (function () {
     }
 
     // 1. Consulta nas APIs pela palavra exata
-    let definitionText = await fetchDefinitionFromPublicApis(clean);
+    let definitionText = await fetchDefinitionFromPublicApis(clean, rawInput);
     let targetCanonical = clean;
 
     // 2. Se nao achou direto (ex: flexao verbal), tenta os candidatos infinitivos na API
     if (!definitionText) {
       const verbCands = getVerbInfinitiveCandidates(clean);
       for (let i = 0; i < verbCands.length; i++) {
-        const defCand = await fetchDefinitionFromPublicApis(verbCands[i]);
+        const defCand = await fetchDefinitionFromPublicApis(verbCands[i], verbCands[i]);
         if (defCand) {
           definitionText = defCand;
           targetCanonical = verbCands[i];
@@ -414,28 +414,47 @@ window.DUELO.Engine = (function () {
     }
   }
 
-  async function fetchDefinitionFromPublicApis(cleanWord) {
-    const [dicResp, wikiResp] = await Promise.all([
-      fetchWithTimeout("https://api.dicionario-aberto.net/word/" + encodeURIComponent(cleanWord), 2400),
-      fetchWithTimeout("https://pt.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(cleanWord), 2400)
+  function isPopCultureNoise(text) {
+    const lower = (text || "").toLowerCase();
+    return /\b(can[çc][ãa]o|m[úu]sica de|singles?|álbum|[áa]lbum|ep de|cantor(?:a|es)?|banda |filme |s[ée]rie de televis[ãa]o|futebolista|jogador(?:a)? de|munic[íi]pio brasileiro)\b/.test(lower);
+  }
+
+  async function fetchDefinitionFromPublicApis(cleanWord, originalWord) {
+    const queryWord = (originalWord || cleanWord).trim().toLowerCase();
+    const [dicResp, dicCleanResp, wikiResp] = await Promise.all([
+      fetchWithTimeout("https://api.dicionario-aberto.net/word/" + encodeURIComponent(queryWord), 2400),
+      queryWord !== cleanWord
+        ? fetchWithTimeout("https://api.dicionario-aberto.net/word/" + encodeURIComponent(cleanWord), 2400)
+        : Promise.resolve(null),
+      fetchWithTimeout("https://pt.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(queryWord), 2400)
     ]);
 
     const parts = [];
 
+    // 1. Prioridade maxima: Dicionario Aberto (definicao linguistica oficial da palavra)
+    const dicCandidates = [dicResp, dicCleanResp];
+    for (let i = 0; i < dicCandidates.length; i++) {
+      const resp = dicCandidates[i];
+      if (resp && resp.ok) {
+        try {
+          const data = await resp.json();
+          if (Array.isArray(data) && data.length > 0 && data[0].xml) {
+            const cleanDef = data[0].xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+            if (cleanDef) {
+              parts.push(cleanDef);
+              break;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 2. Complemento enciclopedico via Wikipedia PT (somente se NAO for artigo de musica/filme/celebridade)
     if (wikiResp && wikiResp.ok) {
       try {
         const wData = await wikiResp.json();
-        if (wData && wData.extract && wData.type !== "disambiguation") {
+        if (wData && wData.extract && wData.type !== "disambiguation" && !isPopCultureNoise(wData.extract)) {
           parts.push(wData.extract);
-        }
-      } catch (e) {}
-    }
-
-    if (dicResp && dicResp.ok) {
-      try {
-        const data = await dicResp.json();
-        if (Array.isArray(data) && data.length > 0 && data[0].xml) {
-          parts.push(data[0].xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
         }
       } catch (e) {}
     }
@@ -578,7 +597,7 @@ window.DUELO.Engine = (function () {
     const clean = stripAccents(word);
     if (!clean) return null;
     if (apiCache[clean] && apiCache[clean].definition) return apiCache[clean];
-    const def = await fetchDefinitionFromPublicApis(clean);
+    const def = await fetchDefinitionFromPublicApis(clean, word);
     if (def) {
       apiCache[clean] = Object.assign(apiCache[clean] || {}, { definition: def.slice(0, 220) });
       saveCache();
