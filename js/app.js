@@ -39,12 +39,29 @@ window.DUELO = window.DUELO || {};
   function qs(sel) { return document.querySelector(sel); }
   function qsa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
 
+  function switchMainTab(tabName) {
+    const isDuel = tabName === "duel";
+    const soloView = qs("#tab-solo-view");
+    const duelView = qs("#tab-duel-view");
+    if (soloView) soloView.classList.toggle("hidden", isDuel);
+    if (duelView) duelView.classList.toggle("hidden", !isDuel);
+
+    qsa("[data-main-tab]").forEach(function (btn) {
+      btn.classList.toggle("is-active", btn.getAttribute("data-main-tab") === tabName);
+    });
+  }
+
+  window.DUELO.SwitchTab = switchMainTab;
+
   function init() {
     loadStats();
     window.DUELO.Radar.init(qs("#semantic-radar-canvas"));
     bindEvents();
     renderSuggestionsChips();
     startNewMatch(); // Sempre sorteia uma palavra secreta aleatoria diferente!
+    if (window.DUELO.DuelMode && window.DUELO.DuelMode.init) {
+      window.DUELO.DuelMode.init();
+    }
   }
 
   function loadStats() {
@@ -670,6 +687,12 @@ window.DUELO = window.DUELO || {};
   }
 
   function bindEvents() {
+    qsa("[data-main-tab]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        switchMainTab(btn.getAttribute("data-main-tab"));
+      });
+    });
+
     const formR1 = qs("#form-round-1");
     if (formR1) formR1.addEventListener("submit", handleRound1Submit);
 

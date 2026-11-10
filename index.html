@@ -75,9 +75,22 @@
       </div>
     </header>
 
+    <!-- NAVEGACAO PRINCIPAL ENTRE MODOS DE JOGO -->
+    <nav class="main-tabs-bar" aria-label="Modos de Jogo">
+      <button type="button" data-main-tab="solo" class="main-tab-btn is-active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+        <span>Modo Solo / Diario</span>
+      </button>
+      <button type="button" data-main-tab="duel" class="main-tab-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span>Modo Duelo 1v1 (Online &amp; Bot)</span>
+      </button>
+    </nav>
+
     <!-- ======================================================================
-         AREA PRINCIPAL DO JOGO (ARENA DE DUELO + RADAR SEMANTICO)
+         ABA 1: MODO SOLO / DIARIO (MECANICA ORIGINAL)
          ====================================================================== -->
+    <div id="tab-solo-view">
     <main class="workspace-split">
 
       <!-- COLUNA ESQUERDA: ARENA DE DUELO DE PALAVRAS -->
@@ -224,6 +237,144 @@
       </aside>
 
     </main>
+    </div>
+
+    <!-- ======================================================================
+         ABA 2: MODO DUELO 1v1 ONLINE (P2P SEM SERVIDOR + BOT AUTOMATICO)
+         ====================================================================== -->
+    <section id="tab-duel-view" class="hidden" aria-label="Modo Duelo 1v1 Online">
+
+      <!-- FASE 1: LOBBY DE DUELO -->
+      <div id="duel-phase-lobby" class="surface-card">
+        <div class="flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <span class="tag-pill">P2P Direto no Navegador (Sem Servidor)</span>
+            <h2 class="text-lg font-bold text-white mt-1">Arena Duelo 1v1: Um Lado Contra o Outro</h2>
+            <p class="text-xs text-zinc-300 mt-1">
+              O computador de quem cria a sala vira o servidor da partida. Cada lado envia uma palavra por rodada para tentar tomar o Trono e acertar 100% primeiro!
+            </p>
+          </div>
+          <div style="min-width: 220px;">
+            <label for="duel-player-name" class="text-xs text-zinc-400">Seu Apelido no Duelo</label>
+            <input id="duel-player-name" type="text" class="word-input mt-1" value="Guilherme" maxlength="18" placeholder="Seu nome..." />
+          </div>
+        </div>
+
+        <div class="duel-lobby-grid">
+          <!-- Opcao A: Fila Rapida + Bot Automatico -->
+          <div class="duel-slot-card is-champion-slot">
+            <div>
+              <span class="tag-pill">Matchmaking Rapido</span>
+              <h3 class="text-white font-bold mt-2">Buscar Partida Online</h3>
+              <p class="text-xs text-zinc-300 mt-1">
+                Procura outro jogador online na fila. Se ninguem aparecer em <strong>10 segundos</strong>, o <strong>Bot Estrategista</strong> entra automaticamente contra voce!
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 mt-4">
+              <button type="button" id="btn-duel-quick-match" class="btn-primary flex-1">
+                Buscar Partida (10s ou Bot)
+              </button>
+              <button type="button" id="btn-duel-force-bot" class="btn-secondary">
+                Jogar vs Bot Agora
+              </button>
+            </div>
+          </div>
+
+          <!-- Opcao B: Sala Privada com Amigo (Codigo / Link) -->
+          <div class="duel-slot-card is-challenger-slot">
+            <div>
+              <span class="tag-pill">Sala Privada com Amigo</span>
+              <h3 class="text-white font-bold mt-2">Criar ou Entrar com Codigo</h3>
+              <p class="text-xs text-zinc-300 mt-1">
+                Crie uma sala e mande o link no WhatsApp para seu amigo, ou cole o codigo da sala dele abaixo.
+              </p>
+            </div>
+            <div class="flex flex-col gap-2 mt-3">
+              <button type="button" id="btn-duel-create-room" class="btn-primary w-full">
+                Criar Sala Privada (Gerar Codigo)
+              </button>
+              <div class="flex gap-2 mt-1">
+                <input id="duel-join-code" type="text" class="word-input" placeholder="Codigo ex: AET-4821" autocomplete="off" />
+                <button type="button" id="btn-duel-join-room" class="btn-secondary">Entrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FASE 2: AGUARDANDO OPONENTE / PROCURANDO PARTIDA -->
+      <div id="duel-phase-searching" class="surface-card hidden" style="text-align: center; padding: 2rem 1.25rem;">
+        <span class="tag-pill">Conexao P2P Ativa</span>
+        <h3 id="duel-wait-title" class="text-lg font-bold text-white mt-2">Procurando Oponente Online...</h3>
+        <p id="duel-wait-desc" class="text-sm text-zinc-300 mt-2"></p>
+
+        <div id="duel-room-code-display" class="duel-room-code-pill hidden">AET-0000</div>
+
+        <div class="flex flex-wrap justify-center gap-3 mt-4">
+          <button type="button" id="btn-duel-copy-link" class="btn-primary hidden">Copiar Link da Sala</button>
+          <button type="button" id="btn-duel-wait-bot" class="btn-secondary">Enfrentar Bot Agora</button>
+          <button type="button" id="btn-duel-cancel-wait" class="btn-secondary">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- FASE 3: ARENA 1v1 ATIVA -->
+      <div id="duel-phase-arena" class="hidden">
+        <div class="surface-card">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <h3 class="section-label" style="margin-bottom:0">Duelo em Tempo Real — Quem Acerta Primeiro Vence</h3>
+            <button type="button" id="btn-duel-leave-arena" class="btn-secondary">Sair da Sala</button>
+          </div>
+
+          <!-- Placar dos 2 Lados -->
+          <div class="duel-scoreboard-bar">
+            <div class="duel-player-banner">
+              <span id="duel-my-label" class="text-xs font-bold uppercase tracking-wider text-amber-300">Voce</span>
+              <strong id="duel-my-score" class="font-mono text-white">0 pts</strong>
+            </div>
+            <span id="duel-round-badge" class="tag-pill">Rodada 1</span>
+            <div class="duel-player-banner is-right">
+              <span id="duel-opp-label" class="text-xs font-bold uppercase tracking-wider text-sky-300">Adversario</span>
+              <strong id="duel-opp-score" class="font-mono text-white">0 pts</strong>
+            </div>
+          </div>
+
+          <!-- Trono Central (Palavra Mais Proxima Atual) -->
+          <div id="duel-throne-card" class="duel-throne-panel"></div>
+
+          <!-- Lado Esquerdo (Voce) VS Lado Direito (Adversario/Bot) -->
+          <form id="form-duel-turn">
+            <div class="duel-arena-grid">
+              <div class="duel-slot-card is-champion-slot">
+                <div>
+                  <label for="duel-my-word-input" class="text-xs font-bold uppercase tracking-wider text-amber-300">Seu Lado: Digite 1 Palavra</label>
+                  <input id="duel-my-word-input" type="text" class="word-input mt-2" placeholder="Sua palavra da rodada..." autocomplete="off" />
+                  <p id="duel-my-status" class="text-xs text-zinc-300 mt-2">Sua vez: digite uma palavra.</p>
+                </div>
+                <button type="submit" id="btn-duel-send-word" class="btn-primary w-full mt-3">
+                  Enviar Jogada
+                </button>
+              </div>
+
+              <div class="vs-divider-badge">VS</div>
+
+              <div class="duel-slot-card is-challenger-slot" style="justify-content: center; text-align: center;">
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-300">Lado do Adversario</span>
+                <p id="duel-opp-status" class="text-xs text-zinc-400 mt-3">Aguardando jogada do oponente...</p>
+              </div>
+            </div>
+          </form>
+
+          <div id="duel-alert-box" class="alert-box hidden" role="alert"></div>
+          <div id="duel-finish-banner" class="hidden"></div>
+        </div>
+
+        <div class="surface-card mt-4">
+          <h3 class="section-label">Historico do Duelo 1v1</h3>
+          <div id="duel-pvp-history"></div>
+        </div>
+      </div>
+
+    </section>
   </div>
 
   <!-- ========================================================================
@@ -281,10 +432,12 @@
   </div>
 
   <!-- SCRIPTS MODULARES (100% Portatil: funciona em file:// e http://) -->
+  <script src="js/vendor/peerjs.min.js"></script>
   <script src="js/dictionary-data.js"></script>
   <script src="js/semantic-engine.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/radar-canvas.js"></script>
+  <script src="js/duel-mode.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
