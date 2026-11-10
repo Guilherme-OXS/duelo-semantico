@@ -12,11 +12,12 @@ window.DUELO = window.DUELO || {};
 
 (function () {
   const STORAGE_KEY = "duelo_semantico_stats_v1";
+  const RECENT_SECRETS_KEY = "duelo_semantico_recent_secrets_v1";
 
   let gameState = {
     mode: "practice",    // "practice" (modo teste livre) ou "daily" (palavra do dia estilo Termo)
     gameCount: 0,
-    secretWord: "roda",
+    secretWord: "",
     categoryFilter: "all",
     round: 1,
     isSolved: false,
@@ -43,7 +44,7 @@ window.DUELO = window.DUELO || {};
     window.DUELO.Radar.init(qs("#semantic-radar-canvas"));
     bindEvents();
     renderSuggestionsChips();
-    startNewMatch("roda"); // Comeca na trilha classsica para testar facil casa -> carro -> pinel -> roda!
+    startNewMatch(); // Sempre sorteia uma palavra secreta aleatoria diferente!
   }
 
   function loadStats() {
@@ -116,17 +117,44 @@ window.DUELO = window.DUELO || {};
     });
   }
 
+  function getRecentSecrets() {
+    try {
+      const raw = localStorage.getItem(RECENT_SECRETS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function rememberSecret(word) {
+    try {
+      const list = getRecentSecrets().filter(function (w) { return w !== word; });
+      list.unshift(word);
+      if (list.length > 25) list.length = 25;
+      localStorage.setItem(RECENT_SECRETS_KEY, JSON.stringify(list));
+    } catch (e) {}
+  }
+
   function pickRandomSecretWord(categoryFilter) {
     const pool = window.DUELO_DATA.SECRET_POOL || [];
     const wordsDb = window.DUELO_DATA.WORDS || {};
-    let candidates = pool.filter(function (w) {
+    const recent = getRecentSecrets();
+
+    let byCategory = pool.filter(function (w) {
       if (w === gameState.secretWord) return false;
       if (!categoryFilter || categoryFilter === "all") return true;
       return wordsDb[w] && wordsDb[w].cluster === categoryFilter;
     });
-    if (candidates.length === 0) candidates = pool;
+    if (byCategory.length === 0) byCategory = pool.filter(function (w) { return w !== gameState.secretWord; });
+
+    // Prioriza palavras que nao sairam recentemente
+    let fresh = byCategory.filter(function (w) { return recent.indexOf(w) === -1; });
+    const candidates = fresh.length > 0 ? fresh : byCategory;
+
     const idx = Math.floor(Math.random() * candidates.length);
-    return candidates[idx] || "carro";
+    const picked = candidates[idx] || "carro";
+    rememberSecret(picked);
+    return picked;
   }
 
   function startNewMatch(forcedSecretWord) {
