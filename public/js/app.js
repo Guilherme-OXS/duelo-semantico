@@ -35,7 +35,8 @@ window.DUELO = window.DUELO || {};
     lastDuel: null,
     history: [],
     testedWords: [],
-    hintsUsed: 0
+    hintsUsed: 0,
+    revealedHints: { tier1: null, tier2: null, tier3: null }
   };
 
   let stats = {
@@ -192,7 +193,13 @@ window.DUELO = window.DUELO || {};
     }
 
     const hideActionButtons = gameState.isSolved || isDailyLocked();
-    if (btnHint) btnHint.classList.toggle("hidden", hideActionButtons);
+    if (btnHint) {
+      btnHint.classList.toggle("hidden", hideActionButtons);
+      btnHint.disabled = gameState.hintsUsed >= 3;
+      btnHint.textContent = gameState.hintsUsed >= 3
+        ? "Todas as Dicas (3/3)"
+        : (gameState.hintsUsed > 0 ? "Pedir Dica (" + gameState.hintsUsed + "/3)" : "Pedir Dica");
+    }
     if (btnReveal) btnReveal.classList.toggle("hidden", hideActionButtons);
   }
 
@@ -353,6 +360,7 @@ window.DUELO = window.DUELO || {};
     gameState.history = Array.isArray(record.history) ? record.history : [];
     gameState.testedWords = Array.isArray(record.testedWords) ? record.testedWords : [];
     gameState.hintsUsed = record.hintsUsed || 0;
+    gameState.revealedHints = { tier1: null, tier2: null, tier3: null };
 
     window.DUELO.Radar.reset();
     gameState.testedWords.forEach(function (tw) {
@@ -454,6 +462,7 @@ window.DUELO = window.DUELO || {};
     gameState.history = [];
     gameState.testedWords = [];
     gameState.hintsUsed = 0;
+    gameState.revealedHints = { tier1: null, tier2: null, tier3: null };
 
     window.DUELO.Radar.reset();
 
@@ -1047,12 +1056,12 @@ window.DUELO = window.DUELO || {};
   }
 
   async function handleRequestHint() {
-    if (gameState.isSolved || isDailyLocked() || isEvaluating) return;
+    if (gameState.isSolved || isDailyLocked() || isEvaluating || gameState.hintsUsed >= 3) return;
     const hintBox = qs("#hint-display-box");
     if (!hintBox) return;
 
     const champScore = gameState.champion ? gameState.champion.score : 15;
-    const nextLevel = gameState.hintsUsed + 1;
+    const nextLevel = Math.min(3, gameState.hintsUsed + 1);
     const excludeWords = (gameState.testedWords || []).map(function (t) { return t.word; });
 
     try {
@@ -1069,17 +1078,30 @@ window.DUELO = window.DUELO || {};
         bundle = window.DUELO.Engine.getHintBundle(gameState.secretWord, champScore, nextLevel, excludeWords);
       }
 
+      if (!gameState.revealedHints.tier1 && bundle.tier1) {
+        gameState.revealedHints.tier1 = bundle.tier1;
+      }
+      if (nextLevel >= 2 && !gameState.revealedHints.tier2 && bundle.tier2) {
+        gameState.revealedHints.tier2 = bundle.tier2;
+      }
+      if (nextLevel >= 3 && !gameState.revealedHints.tier3 && bundle.tier3) {
+        gameState.revealedHints.tier3 = bundle.tier3;
+      }
+
       window.DUELO.Audio.hint();
       gameState.hintsUsed = nextLevel;
+      syncModeControls();
       hintBox.classList.remove("hidden");
 
       let html = '<div class="space-y-1">';
-      html += '<p class="text-xs font-semibold text-amber-300">' + bundle.tier1 + '</p>';
-      if (gameState.hintsUsed >= 2 && bundle.tier2) {
-        html += '<p class="text-xs text-sky-300">' + bundle.tier2 + '</p>';
+      if (gameState.revealedHints.tier1) {
+        html += '<p class="text-xs font-semibold text-amber-300">' + gameState.revealedHints.tier1 + '</p>';
       }
-      if (gameState.hintsUsed >= 3 && bundle.tier3) {
-        html += '<p class="text-xs text-emerald-400">' + bundle.tier3 + '</p>';
+      if (gameState.hintsUsed >= 2 && gameState.revealedHints.tier2) {
+        html += '<p class="text-xs text-sky-300">' + gameState.revealedHints.tier2 + '</p>';
+      }
+      if (gameState.hintsUsed >= 3 && gameState.revealedHints.tier3) {
+        html += '<p class="text-xs text-emerald-400">' + gameState.revealedHints.tier3 + '</p>';
       }
       html += '</div>';
 
