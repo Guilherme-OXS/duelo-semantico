@@ -195,11 +195,12 @@ window.DUELO.Engine = (function () {
         }
       }
 
-      if (cleaned.length >= 4) {
+      if (cleaned.length >= 6) {
         let bestMatch = null;
         let bestDist = 99;
         for (let i = 0; i < allKeys.length; i++) {
           const k = allKeys[i];
+          if (k.charAt(0) !== cleaned.charAt(0)) continue;
           if (Math.abs(k.length - cleaned.length) > 1) continue;
           const d = levenshtein(cleaned, k);
           if (d <= 1 && d < bestDist) {
@@ -240,7 +241,7 @@ window.DUELO.Engine = (function () {
       { roots: ["cas", "apart", "telh", "port", "janel", "chav", "quart", "cam", "sal", "sof", "cozinh", "banheir", "predi"], theme: "moradia_casa" },
       { roots: ["arvor", "florest", "flor", "rio", "mar", "prai", "montanh", "sol", "lua", "estrel", "chuv", "nuvem", "vent", "pedr", "terr"], theme: "natureza_clima" },
       { roots: ["cachorr", "gat", "caval", "vac", "boi", "lea", "lob", "passar", "peix", "bich", "anim", "dinossaur"], theme: "animais_fauna" },
-      { roots: ["comid", "aliment", "pao", "caf", "leit", "queij", "arroz", "feija", "carn", "frang", "pizz", "bol", "chocolat", "frut"], theme: "alimentacao_bebida" },
+      { roots: ["comid", "aliment", "pao", "caf", "leit", "queij", "arroz", "feija", "carn", "frang", "pizz", "bol", "chocolat", "frut", "almoc", "jant", "lanch", "refeic", "verdur", "legum", "salad", "oliv", "azeit", "temper", "talher", "restaurant", "manteig", "vinagr", "farinh", "culinari", "cozinheir", "frit"], theme: "alimentacao_bebida" },
       { roots: ["corp", "cabec", "rosto", "olh", "boc", "dent", "brac", "pern", "coraca", "saud", "medic", "hospital", "remedi", "dorm"], theme: "corpo_saude" },
       { roots: ["comput", "celul", "intern", "teclad", "telas", "camer", "bateri", "rob", "livr", "escol", "relogi", "cienc"], theme: "tecnologia_ciencias" },
       { roots: ["futeb", "bol", "gol", "viola", "music", "pian", "film", "jog", "esport"], theme: "esporte_musica_lazer" },
@@ -429,7 +430,7 @@ window.DUELO.Engine = (function () {
 
   function isPopCultureNoise(text) {
     const lower = (text || "").toLowerCase();
-    return /\b(can[çc][ãa]o|m[úu]sica de|singles?|álbum|[áa]lbum|ep de|cantor(?:a|es)?|banda |filme |s[ée]rie de televis[ãa]o|futebolista|jogador(?:a)? de|munic[íi]pio brasileiro)\b/.test(lower);
+    return /\b(can[çc][ãa]o|m[úu]sica de|singles?|álbum|[áa]lbum|ep de|cantor(?:a|es)?|banda |filme |s[ée]rie de televis[ãa]o|futebolista|jogador(?:a)? de|munic[íi]pio (?:brasileiro|espanhol|portugu[eê]s)|comuna |desambigua[çc][ãa]o|sobrenome|prenome|localidade)\b/.test(lower);
   }
 
   async function fetchDefinitionFromPublicApis(cleanWord, originalWord) {
@@ -564,6 +565,13 @@ window.DUELO.Engine = (function () {
 
     if (w1.length >= 4 && w2.length >= 4 && w1.slice(0, 4) === w2.slice(0, 4)) {
       score += 2.0;
+    }
+
+    // Conexao direta explicita entre clusters diferentes (ex: azeite <-> cozinha, roda <-> circulo) mantem piso semantico forte
+    if ((idxInSecret !== -1 || idxInGuess !== -1) && e1.cluster !== e2.cluster) {
+      const crossRank = idxInSecret !== -1 ? idxInSecret : idxInGuess;
+      const directFloor = 58.0 + Math.max(0, 6.0 - crossRank * 1.2) + (idxInSecret !== -1 && idxInGuess !== -1 ? 3.0 : 0);
+      if (score < directFloor) score = directFloor;
     }
 
     score += deterministicJitter(w1, w2);
