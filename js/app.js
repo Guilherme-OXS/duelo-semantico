@@ -245,11 +245,11 @@ window.DUELO = window.DUELO || {};
     const btn2 = qs("#btn-submit-round-next");
     if (btn1) {
       btn1.disabled = busy;
-      btn1.textContent = busy ? (customText || "Analisando Dicionario...") : "Comparar as 2 Palavras";
+      btn1.textContent = busy ? (customText || "Consultando dicionário...") : "Comparar palavras";
     }
     if (btn2) {
       btn2.disabled = busy;
-      btn2.textContent = busy ? (customText || "Analisando Dicionario...") : "Comparar com a Campea Atual";
+      btn2.textContent = busy ? (customText || "Consultando dicionário...") : "Enviar tentativa";
     }
   }
 
@@ -504,18 +504,18 @@ window.DUELO = window.DUELO || {};
 
     let headline = "";
     if (d.winner.isExact) {
-      headline = 'NA MOSCA! A palavra secreta era <strong>' + d.winner.displayWord + '</strong>!';
+      headline = 'Na mosca! A palavra secreta era <strong>' + d.winner.displayWord + '</strong>.';
     } else if (d.round === 1) {
-      headline = 'O programa escolheu <strong>' + d.winner.displayWord + '</strong>! Ela esta mais proxima da palavra secreta do que ' + d.loser.displayWord + '.';
+      headline = '<strong>' + d.winner.displayWord + '</strong> venceu a abertura e está mais próxima do que ' + d.loser.displayWord + '.';
     } else if (d.winnerSide === "right") {
-      headline = 'NOVA CAMPEA! <strong>' + d.winner.displayWord + '</strong> (' + d.winner.score.toFixed(1) + '%) superou ' + d.loser.displayWord + ' (' + d.loser.score.toFixed(1) + '%) e assumiu a lideranca!';
+      headline = '<strong>' + d.winner.displayWord + '</strong> (' + d.winner.score.toFixed(1) + '%) superou ' + d.loser.displayWord + ' (' + d.loser.score.toFixed(1) + '%) e assumiu o posto.';
     } else {
-      headline = '<strong>' + d.winner.displayWord + '</strong> (' + d.winner.score.toFixed(1) + '%) continua mais proxima do que ' + d.loser.displayWord + ' (' + d.loser.score.toFixed(1) + '%). Tente outra palavra!';
+      headline = '<strong>' + d.winner.displayWord + '</strong> (' + d.winner.score.toFixed(1) + '%) continua mais próxima do que ' + d.loser.displayWord + ' (' + d.loser.score.toFixed(1) + '%).';
     }
 
     box.innerHTML =
       '<div class="verdict-header">' +
-        '<span class="tag-pill">Resultado da Rodada ' + d.round + '</span>' +
+        '<span class="editorial-kicker">Resultado da Rodada ' + d.round + '</span>' +
         '<p class="verdict-headline">' + headline + '</p>' +
       '</div>' +
       '<div class="verdict-cards-row">' +
@@ -525,7 +525,7 @@ window.DUELO = window.DUELO || {};
             '<span class="font-mono font-bold">' + d.left.score.toFixed(1) + '%</span>' +
           '</div>' +
           '<div class="meter-track mt-1"><div class="meter-fill fill-' + d.left.tier + '" style="width:' + d.left.score + '%"></div></div>' +
-          '<span class="text-xs text-zinc-400 mt-1">' + (d.winnerSide === "left" ? "ESCOLHIDA (Mais Proxima)" : "Menos proxima") + ' - ' + d.left.tierLabel + '</span>' +
+          '<span class="text-xs text-zinc-400 mt-1">' + (d.winnerSide === "left" ? "Mais próxima" : "Menos próxima") + ' · ' + d.left.tierLabel + '</span>' +
         '</div>' +
         '<div class="verdict-vs-pill">VS</div>' +
         '<div class="verdict-mini-card ' + (d.winnerSide === "right" ? "is-winner" : "is-loser") + '">' +
@@ -534,7 +534,7 @@ window.DUELO = window.DUELO || {};
             '<span class="font-mono font-bold">' + d.right.score.toFixed(1) + '%</span>' +
           '</div>' +
           '<div class="meter-track mt-1"><div class="meter-fill fill-' + d.right.tier + '" style="width:' + d.right.score + '%"></div></div>' +
-          '<span class="text-xs text-zinc-400 mt-1">' + (d.winnerSide === "right" ? "ESCOLHIDA (Mais Proxima)" : "Menos proxima") + ' - ' + d.right.tierLabel + '</span>' +
+          '<span class="text-xs text-zinc-400 mt-1">' + (d.winnerSide === "right" ? "Mais próxima" : "Menos próxima") + ' · ' + d.right.tierLabel + '</span>' +
         '</div>' +
       '</div>';
   }
@@ -556,18 +556,33 @@ window.DUELO = window.DUELO || {};
     banner.classList.remove("hidden");
     banner.innerHTML =
       '<div class="victory-celebration-card">' +
-        '<span class="tag-pill">Palavra Secreta Descoberta!</span>' +
+        '<span class="editorial-kicker">Palavra Descoberta</span>' +
         '<h2 class="victory-word-heading">' + winner.displayWord + '</h2>' +
         '<p class="text-sm text-zinc-300 mt-1">' + hintText + '</p>' +
-        '<p class="text-xs font-mono text-amber-300 mt-2">Voce chegou na resposta em ' + totalRounds + ' ' + (totalRounds === 1 ? 'rodada' : 'rodadas') + '!</p>' +
+        '<p class="text-xs font-mono text-amber-300 mt-2">Você acertou em ' + totalRounds + ' ' + (totalRounds === 1 ? 'rodada' : 'rodadas') + '.</p>' +
         '<div class="evolution-chain-box mt-3">' +
-          '<span class="text-xs uppercase tracking-wider text-zinc-400">Trilha das Escolhas do Programa:</span>' +
+          '<span class="text-xs uppercase tracking-wider text-zinc-400">Caminho das vencedoras:</span>' +
           '<p class="font-mono text-sm text-emerald-400 mt-1">' + chain.join(" -> ") + '</p>' +
         '</div>' +
         '<div class="mt-4 flex flex-wrap justify-center gap-3">' +
-          '<button type="button" id="btn-victory-next" class="btn-primary">Jogar Proxima Palavra</button>' +
+          '<button type="button" id="btn-share-solo-result" class="btn-secondary">Compartilhar Resultado</button>' +
+          '<button type="button" id="btn-victory-next" class="btn-primary">Jogar Próxima Palavra</button>' +
         '</div>' +
       '</div>';
+
+    const shareBtn = qs("#btn-share-solo-result");
+    if (shareBtn) {
+      shareBtn.addEventListener("click", function () {
+        const gameUrl = window.location.origin + window.location.pathname;
+        const shareText = "Duelo Semântico: acertei a palavra em " + totalRounds + (totalRounds === 1 ? " rodada" : " rodadas") + "! Jogue também: " + gameUrl;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareText).then(function () {
+            shareBtn.textContent = "Copiado para o WhatsApp!";
+            setTimeout(function () { shareBtn.textContent = "Compartilhar Resultado"; }, 2200);
+          }).catch(function () {});
+        }
+      });
+    }
 
     const nextBtn = qs("#btn-victory-next");
     if (nextBtn) {
@@ -582,7 +597,7 @@ window.DUELO = window.DUELO || {};
     if (!container) return;
 
     if (gameState.history.length === 0) {
-      container.innerHTML = '<div class="empty-box">Nenhuma rodada disputada ainda. Digite duas palavras acima para comecar!</div>';
+      container.innerHTML = '<div class="empty-box">Nenhuma rodada disputada ainda. Digite duas palavras acima para começar.</div>';
       return;
     }
 
@@ -599,7 +614,7 @@ window.DUELO = window.DUELO || {};
               h.right.displayWord + ' (' + h.right.score.toFixed(0) + '%)' +
             '</span>' +
           '</div>' +
-          '<span class="history-winner-pill">Escolhida: ' + h.winner.displayWord + '</span>' +
+          '<span class="history-winner-pill">Ficou: ' + h.winner.displayWord + '</span>' +
         '</div>'
       );
     }).join("");
@@ -610,7 +625,7 @@ window.DUELO = window.DUELO || {};
     if (!listEl) return;
 
     if (gameState.testedWords.length === 0) {
-      listEl.innerHTML = '<div class="empty-box">As palavras que voce testar ficarao listadas aqui por ordem de proximidade.</div>';
+      listEl.innerHTML = '<div class="empty-box">Suas tentativas aparecerão aqui ordenadas da mais próxima para a mais distante.</div>';
       return;
     }
 
@@ -621,7 +636,7 @@ window.DUELO = window.DUELO || {};
           '<div class="flex items-center gap-2">' +
             '<span class="ranking-pos">#' + (idx + 1) + '</span>' +
             '<span class="font-bold text-sm text-white">' + item.displayWord + '</span>' +
-            (isChamp ? '<span class="champ-mini-tag">Mais Proxima</span>' : '') +
+            (isChamp ? '<span class="champ-mini-tag">Mais Próxima</span>' : '') +
           '</div>' +
           '<div class="flex items-center gap-3">' +
             '<div class="ranking-mini-bar"><div class="meter-fill fill-' + item.tier + '" style="width:' + item.score + '%"></div></div>' +

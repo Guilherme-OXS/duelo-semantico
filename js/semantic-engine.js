@@ -555,27 +555,27 @@ window.DUELO.Engine = (function () {
     const clamped = Math.max(4.5, Math.min(98.8, Math.round(score * 10) / 10));
 
     let tier = "cold";
-    let tierLabel = "Frio / Distante";
+    let tierLabel = "Frio · Distante";
     if (clamped >= 82) {
       tier = "burning";
-      tierLabel = "Fervendo / Muito Proximo!";
+      tierLabel = "Fervendo · Muito próxima";
     } else if (clamped >= 62) {
       tier = "hot";
-      tierLabel = "Quente / Mesmo Contexto";
+      tierLabel = "Quente · Mesmo contexto";
     } else if (clamped >= 38) {
       tier = "warm";
-      tierLabel = "Morno / Relacao Indireta";
+      tierLabel = "Morno · Relação indireta";
     }
 
-    let explanation = "Campo: " + e1.category;
+    let explanation = "Área: " + e1.category;
     if (resolved.source === "api") {
-      explanation = "Aprendida via Dicionario Online (" + e1.category + ")";
+      explanation = "Dicionário online (" + e1.category + ")";
     } else if (idxInSecret !== -1 || idxInGuess !== -1) {
-      explanation = "Conexao direta forte com a palavra secreta!";
+      explanation = "Conexão direta com a palavra secreta.";
     } else if (sharedWords.length > 0) {
-      explanation = "Compartilha contexto com: " + sharedWords.slice(0, 2).join(", ").toUpperCase();
+      explanation = "Ligada a: " + sharedWords.slice(0, 2).join(", ").toUpperCase();
     } else if (e1.cluster === e2.cluster) {
-      explanation = "Pertence ao mesmo universo tematico (" + e1.category + ").";
+      explanation = "Mesmo tema (" + e1.category + ").";
     }
 
     return {

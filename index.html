@@ -3,29 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Duelo Semantico: Mais Proximo | Jogo de Palavras em Portugues</title>
-  <meta name="description" content="Jogo de adivinhacao semantica onde duas palavras disputam qual esta mais proxima da palavra secreta, e a vencedora permanece para a proxima rodada." />
+  <title>Duelo Semântico — Adivinhe a Palavra Mais Próxima</title>
+  <meta name="description" content="Jogo brasileiro de palavras em português: mande duas palavras, a mais próxima fica no trono e você continua disputando até acertar." />
+  <meta name="theme-color" content="#121316" />
+
+  <!-- Preview Bonito ao Compartilhar no WhatsApp, Discord e Telegram -->
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:site_name" content="Duelo Semântico" />
+  <meta property="og:title" content="Duelo Semântico — Adivinhe a Palavra Mais Próxima" />
+  <meta property="og:description" content="Mande duas palavras. A mais próxima fica no trono — continue jogando solo, na Palavra do Dia ou em Duelo 1v1 com amigos até acertar!" />
+  <meta property="og:image" content="assets/og-cover.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Duelo Semântico — Adivinhe a Palavra Mais Próxima" />
+  <meta name="twitter:description" content="Mande duas palavras. A mais próxima fica no trono até você acertar. Jogue solo ou em Duelo 1v1 ao vivo!" />
+  <meta name="twitter:image" content="assets/og-cover.jpg" />
+
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="app-shell">
 
   <div class="main-container">
     <!-- ======================================================================
-         CABECALHO & CONTROLES DE PARTIDA
+         CABEÇALHO EDITORIAL & CONTROLES
          ====================================================================== -->
     <header class="top-header">
       <div class="brand-lockup">
         <div class="brand-icon-box" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <circle cx="12" cy="12" r="6"></circle>
-            <circle cx="12" cy="12" r="2"></circle>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="4" width="4" height="16" rx="1.5" fill="#3182CE" />
+            <rect x="10" y="4" width="4" height="16" rx="1.5" fill="#D69E2E" />
+            <rect x="17" y="4" width="4" height="16" rx="1.5" fill="#2F855A" />
           </svg>
         </div>
         <div>
-          <span class="tag-pill">Rei da Colina das Palavras</span>
-          <h1 class="brand-title">Duelo Semantico: Mais Proximo</h1>
-          <p class="brand-subtitle">Rodada 1: digite 2 palavras. O programa escolhe a mais proxima e ela continua na disputa ate voce acertar!</p>
+          <h1 class="brand-title">Duelo Semântico</h1>
+          <p class="brand-subtitle">Mande duas palavras. A mais próxima fica — continue até acertar.</p>
         </div>
       </div>
 
@@ -35,7 +51,7 @@
           <strong id="stat-current-round" class="font-mono text-amber-300">Rodada 1</strong>
         </div>
         <div class="stat-chip">
-          <span class="text-zinc-400">Vitorias:</span>
+          <span class="text-zinc-400">Vitórias:</span>
           <strong id="stat-games-won" class="font-mono text-emerald-400">0</strong>
         </div>
         <div class="stat-chip">
@@ -45,29 +61,29 @@
 
         <label for="select-game-mode" class="hidden">Modo de Jogo</label>
         <select id="select-game-mode" class="select-control" aria-label="Modo de Jogo">
-          <option value="practice">Modo: Treino Livre (Testar)</option>
-          <option value="daily">Modo: Palavra do Dia (Estilo Termo)</option>
+          <option value="practice">Modo: Treino Livre</option>
+          <option value="daily">Modo: Palavra do Dia</option>
         </select>
 
         <label for="select-category-filter" class="hidden">Filtrar Tema</label>
         <select id="select-category-filter" class="select-control" aria-label="Escolher Tema da Palavra Secreta">
           <option value="all">Tema: Todas as Categorias</option>
-          <option value="transporte_rodas">Tema: Veiculos & Rodovia</option>
-          <option value="moradia_casa">Tema: Casa & Construcao</option>
-          <option value="vida_filosofia_emocao">Tema: Vida, Mente & Sentimentos</option>
-          <option value="alimentacao_bebida">Tema: Comidas & Bebidas</option>
-          <option value="natureza_clima">Tema: Natureza & Clima</option>
-          <option value="animais_fauna">Tema: Animais & Fauna</option>
-          <option value="corpo_saude">Tema: Corpo Humano & Saude</option>
-          <option value="tecnologia_ciencias">Tema: Tecnologia & Ciencia</option>
-          <option value="esporte_musica_lazer">Tema: Esportes, Musica & Lazer</option>
-          <option value="vestuario_moda">Tema: Vestuario & Acessorios</option>
-          <option value="sociedade_cidade">Tema: Cidade & Profissoes</option>
-          <option value="tempo_espaco">Tema: Tempo & Universo</option>
+          <option value="transporte_rodas">Tema: Veículos e Rodovia</option>
+          <option value="moradia_casa">Tema: Casa e Construção</option>
+          <option value="vida_filosofia_emocao">Tema: Vida, Mente e Sentimentos</option>
+          <option value="alimentacao_bebida">Tema: Comidas e Bebidas</option>
+          <option value="natureza_clima">Tema: Natureza e Clima</option>
+          <option value="animais_fauna">Tema: Animais e Fauna</option>
+          <option value="corpo_saude">Tema: Corpo Humano e Saúde</option>
+          <option value="tecnologia_ciencias">Tema: Tecnologia e Ciência</option>
+          <option value="esporte_musica_lazer">Tema: Esportes, Música e Lazer</option>
+          <option value="vestuario_moda">Tema: Vestuário e Acessórios</option>
+          <option value="sociedade_cidade">Tema: Cidade e Profissões</option>
+          <option value="tempo_espaco">Tema: Tempo e Universo</option>
         </select>
 
         <button type="button" id="btn-open-custom-modal" class="btn-secondary">
-          Desafiar Amigo (Escolher Palavra)
+          Criar Palavra
         </button>
         <button type="button" id="btn-toggle-sound" class="btn-secondary">
           Som: Ativo
@@ -75,236 +91,220 @@
       </div>
     </header>
 
-    <!-- NAVEGACAO PRINCIPAL ENTRE MODOS DE JOGO -->
+    <!-- NAVEGAÇÃO ENTRE MODOS -->
     <nav class="main-tabs-bar" aria-label="Modos de Jogo">
       <button type="button" data-main-tab="solo" class="main-tab-btn is-active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-        <span>Modo Solo / Diario</span>
+        <span>Modo Solo / Diário</span>
       </button>
       <button type="button" data-main-tab="duel" class="main-tab-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        <span>Modo Duelo 1v1 (Online &amp; Bot)</span>
+        <span>Duelo 1v1 (Amigos &amp; Bot)</span>
       </button>
     </nav>
 
     <!-- ======================================================================
-         ABA 1: MODO SOLO / DIARIO (MECANICA ORIGINAL)
+         ABA 1: MODO SOLO / DIÁRIO
          ====================================================================== -->
     <div id="tab-solo-view">
-    <main class="workspace-split">
+      <main class="workspace-split">
 
-      <!-- COLUNA ESQUERDA: ARENA DE DUELO DE PALAVRAS -->
-      <section class="flex-col gap-4">
-        <div class="surface-card">
-          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
-            <h2 class="section-label" style="margin-bottom:0">Arena de Comparacao Semantica</h2>
-            <div class="flex flex-wrap gap-2">
-              <button type="button" id="btn-get-hint" class="btn-secondary">Pedir Dica</button>
-              <button type="button" id="btn-reveal-secret" class="btn-secondary">Revelar Resposta</button>
-              <button type="button" id="btn-new-secret" class="btn-secondary">Sortear Outra Palavra</button>
+        <!-- COLUNA ESQUERDA: ÁREA DE JOGO -->
+        <section class="flex-col gap-4">
+          <div class="surface-card">
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+              <h2 class="section-label" style="margin-bottom:0">Disputa de Palavras</h2>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="btn-get-hint" class="btn-secondary">Pedir Dica</button>
+                <button type="button" id="btn-reveal-secret" class="btn-secondary">Revelar</button>
+                <button type="button" id="btn-new-secret" class="btn-secondary">Nova Palavra</button>
+              </div>
             </div>
-          </div>
 
-          <!-- PAINEL DA RODADA 1: JOGADOR ESCREVE 2 PALAVRAS -->
-          <div id="panel-round-1">
-            <p class="text-sm text-zinc-300 mb-3">
-              <strong>1a Rodada:</strong> Escreva <strong>duas palavras</strong> da lingua portuguesa (por exemplo: <code>casa</code> e <code>carro</code>). O programa vai calcular qual das duas esta mais proxima da Palavra Secreta e mante-la para a proxima rodada!
-            </p>
+            <!-- 1ª RODADA: DUAS PALAVRAS -->
+            <div id="panel-round-1">
+              <p class="text-sm text-zinc-300 mb-3">
+                <strong>1ª Rodada:</strong> escreva duas palavras em português (por exemplo, <code>casa</code> e <code>carro</code>). A mais próxima da palavra secreta continua para a rodada seguinte.
+              </p>
 
-            <form id="form-round-1">
-              <div class="duel-arena-grid">
-                <div class="duel-slot-card">
-                  <label for="input-round1-word1" class="text-xs font-bold uppercase tracking-wider text-amber-300">Primeira Palavra</label>
-                  <input id="input-round1-word1" type="text" class="word-input mt-2" placeholder="Ex: casa" autocomplete="off" />
-                  <span class="text-xs text-zinc-400 mt-2">Digite qualquer substantivo ou palavra em portugues.</span>
-                </div>
-
-                <div class="vs-divider-badge">VS</div>
-
-                <div class="duel-slot-card">
-                  <label for="input-round1-word2" class="text-xs font-bold uppercase tracking-wider text-sky-300">Segunda Palavra</label>
-                  <input id="input-round1-word2" type="text" class="word-input mt-2" placeholder="Ex: carro" autocomplete="off" />
-                  <span class="text-xs text-zinc-400 mt-2">O programa escolhera a mais proxima entre as duas.</span>
-                </div>
-              </div>
-
-              <div class="flex flex-wrap justify-between items-center gap-3 mt-3">
-                <button type="button" id="btn-fill-example" class="btn-secondary">
-                  Testar Exemplo Rapido: "casa" vs "carro"
-                </button>
-                <button type="submit" id="btn-submit-round1" class="btn-primary">
-                  <span>Comparar as 2 Palavras</span>
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <!-- PAINEL DAS RODADAS 2+: PALAVRA CAMPEA MANTIDA VS 1 NOVA PALAVRA -->
-          <div id="panel-round-next" class="hidden">
-            <p class="text-sm text-zinc-300 mb-3">
-              <strong>Rodada em Andamento:</strong> A palavra escolhida pelo programa permaneceu no trono a esquerda. Agora digite <strong>mais uma palavra</strong> a direita (ex: <code>pinel</code> / <code>pneu</code>, <code>roda</code>, <code>motor</code>...) para ver qual fica mais proxima!
-            </p>
-
-            <form id="form-round-next">
-              <div class="duel-arena-grid">
-                <!-- Lado Esquerdo: Palavra Mais Proxima Atual (Fixa Automaticamente) -->
-                <div class="duel-slot-card is-champion-slot">
-                  <div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-xs font-bold uppercase tracking-wider text-amber-300">Mais Proxima Atual (Escolhida)</span>
-                      <span id="champ-word-tier" class="temp-badge tier-hot">Quente</span>
-                    </div>
-                    <div id="champ-word-title" class="champion-word-display">CARRO</div>
-                    <p id="champ-word-correction" class="text-xs text-sky-300 hidden"></p>
+              <form id="form-round-1">
+                <div class="duel-arena-grid">
+                  <div class="duel-slot-card">
+                    <label for="input-round1-word1" class="text-xs font-bold uppercase tracking-wider text-amber-300">Primeira palavra</label>
+                    <input id="input-round1-word1" type="text" class="word-input mt-2" placeholder="Ex: casa" autocomplete="off" />
+                    <span class="text-xs text-zinc-400 mt-2">Qualquer palavra da língua portuguesa.</span>
                   </div>
 
-                  <div class="mt-2">
-                    <div class="flex justify-between items-center text-xs mb-2">
-                      <span id="champ-word-meta" class="text-zinc-300">Mesmo contexto</span>
-                      <strong id="champ-word-score" class="font-mono text-amber-300">74.0%</strong>
-                    </div>
-                    <div class="meter-track">
-                      <div id="champ-word-bar" class="meter-fill fill-hot" style="width: 74%"></div>
-                    </div>
+                  <div class="vs-divider-badge">VS</div>
+
+                  <div class="duel-slot-card">
+                    <label for="input-round1-word2" class="text-xs font-bold uppercase tracking-wider text-sky-300">Segunda palavra</label>
+                    <input id="input-round1-word2" type="text" class="word-input mt-2" placeholder="Ex: carro" autocomplete="off" />
+                    <span class="text-xs text-zinc-400 mt-2">O jogo escolhe a mais próxima entre as duas.</span>
                   </div>
                 </div>
 
-                <div class="vs-divider-badge">VS</div>
-
-                <!-- Lado Direito: Entrada da Nova Palavra Desafiante -->
-                <div class="duel-slot-card is-challenger-slot">
-                  <div>
-                    <label for="input-next-challenger" class="text-xs font-bold uppercase tracking-wider text-sky-300">Escreva Mais Uma Palavra</label>
-                    <input id="input-next-challenger" type="text" class="word-input mt-2" placeholder="Ex: pinel (pneu), roda..." autocomplete="off" />
-                    <p class="text-xs text-zinc-400 mt-2">
-                      Se esta nova palavra for mais proxima da secreta, ela assume o lugar da atual!
-                    </p>
-                  </div>
-
-                  <button type="submit" id="btn-submit-round-next" class="btn-primary w-full mt-3">
-                    Comparar com a Campea Atual
+                <div class="flex flex-wrap justify-between items-center gap-3 mt-3">
+                  <button type="button" id="btn-fill-example" class="btn-secondary">
+                    Testar exemplo: "casa" vs "carro"
+                  </button>
+                  <button type="submit" id="btn-submit-round1" class="btn-primary">
+                    <span>Comparar palavras</span>
                   </button>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
+
+            <!-- RODADAS 2+: PALAVRA NO TRONO VS NOVA TENTATIVA -->
+            <div id="panel-round-next" class="hidden">
+              <p class="text-sm text-zinc-300 mb-3">
+                A palavra mais próxima até agora permanece à esquerda. Digite <strong>mais uma palavra</strong> à direita para tentar superá-la.
+              </p>
+
+              <form id="form-round-next">
+                <div class="duel-arena-grid">
+                  <div class="duel-slot-card is-champion-slot">
+                    <div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-300">Mais próxima atual</span>
+                        <span id="champ-word-tier" class="temp-badge tier-hot">Quente</span>
+                      </div>
+                      <div id="champ-word-title" class="champion-word-display">CARRO</div>
+                      <p id="champ-word-correction" class="text-xs text-sky-300 hidden"></p>
+                    </div>
+
+                    <div class="mt-2">
+                      <div class="flex justify-between items-center text-xs mb-2">
+                        <span id="champ-word-meta" class="text-zinc-300">Mesmo contexto</span>
+                        <strong id="champ-word-score" class="font-mono text-amber-300">74.0%</strong>
+                      </div>
+                      <div class="meter-track">
+                        <div id="champ-word-bar" class="meter-fill fill-hot" style="width: 74%"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="vs-divider-badge">VS</div>
+
+                  <div class="duel-slot-card is-challenger-slot">
+                    <div>
+                      <label for="input-next-challenger" class="text-xs font-bold uppercase tracking-wider text-sky-300">Nova palavra</label>
+                      <input id="input-next-challenger" type="text" class="word-input mt-2" placeholder="Ex: pneu, roda, motor..." autocomplete="off" />
+                      <p class="text-xs text-zinc-400 mt-2">
+                        Se chegar mais perto da secreta, assume o lugar da atual.
+                      </p>
+                    </div>
+
+                    <button type="submit" id="btn-submit-round-next" class="btn-primary w-full mt-3">
+                      Enviar tentativa
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Sugestões Rápidas -->
+            <div class="suggestions-bar">
+              <span class="text-xs text-zinc-400">Sugestões:</span>
+              <div id="quick-suggestions-cluster" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div id="inline-alert-box" class="alert-box hidden" role="alert"></div>
+            <div id="hint-display-box" class="hint-box hidden"></div>
+            <div id="victory-banner" class="hidden"></div>
+            <div id="duel-verdict-banner" class="verdict-banner hidden"></div>
           </div>
 
-          <!-- Sugestoes Rapidas Clicaveis (Preenchem o campo vazio com 1 clique) -->
-          <div class="suggestions-bar">
-            <span class="text-xs text-zinc-400">Sugestoes rapidas:</span>
-            <div id="quick-suggestions-cluster" class="flex flex-wrap gap-2"></div>
+          <div class="surface-card">
+            <h3 class="section-label">Rodadas Anteriores</h3>
+            <div id="duel-history-list"></div>
+          </div>
+        </section>
+
+        <!-- COLUNA DIREITA: MAPA & RANKING -->
+        <aside class="flex-col gap-4">
+          <div class="surface-card">
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="section-label" style="margin-bottom:0">Mapa de Proximidade</h3>
+              <span class="text-xs text-zinc-400">Centro = Palavra Secreta</span>
+            </div>
+            <div class="radar-canvas-box">
+              <canvas id="semantic-radar-canvas" width="500" height="360"></canvas>
+            </div>
+            <p class="text-xs text-zinc-400 mt-2">
+              Quanto mais perto do centro (<code>?</code>), mais próxima está a palavra. A linha tracejada mostra o caminho das vencedoras.
+            </p>
           </div>
 
-          <!-- Caixa de Alerta Inline -->
-          <div id="inline-alert-box" class="alert-box hidden" role="alert"></div>
-
-          <!-- Caixa de Dicas Progressivas -->
-          <div id="hint-display-box" class="hint-box hidden"></div>
-
-          <!-- Banner de Celebracao quando Acerta 100% -->
-          <div id="victory-banner" class="hidden"></div>
-
-          <!-- Veredito Detalhado do Ultimo Duelo -->
-          <div id="duel-verdict-banner" class="verdict-banner hidden"></div>
-        </div>
-
-        <!-- HISTORICO PASSO A PASSO DAS RODADAS -->
-        <div class="surface-card">
-          <h3 class="section-label">Historico de Decisoes do Programa (Rodada a Rodada)</h3>
-          <div id="duel-history-list"></div>
-        </div>
-      </section>
-
-      <!-- COLUNA DIREITA: RADAR GRAVITACIONAL 2D & RANKING DE PROXIMIDADE -->
-      <aside class="flex-col gap-4">
-        <div class="surface-card">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="section-label" style="margin-bottom:0">Radar Gravitacional de Proximidade</h3>
-            <span class="text-xs text-zinc-400">Nucleo = Palavra Secreta</span>
+          <div class="surface-card">
+            <h3 class="section-label">Suas Tentativas</h3>
+            <div id="tested-words-ranking"></div>
           </div>
-          <div class="radar-canvas-box">
-            <canvas id="semantic-radar-canvas" width="500" height="360"></canvas>
-          </div>
-          <p class="text-xs text-zinc-400 mt-2">
-            Quanto mais perto do centro luminoso (<code>?</code>), mais quente e proxima esta a sua palavra. A linha pontilhada mostra a evolucao das palavras escolhidas pelo programa.
-          </p>
-        </div>
+        </aside>
 
-        <div class="surface-card">
-          <h3 class="section-label">Termometro Geral de Palavras Testadas</h3>
-          <div id="tested-words-ranking"></div>
-        </div>
-      </aside>
-
-    </main>
+      </main>
     </div>
 
     <!-- ======================================================================
-         ABA 2: MODO DUELO 1v1 ONLINE (P2P SEM SERVIDOR + BOT AUTOMATICO)
+         ABA 2: DUELO 1v1 (AMIGOS POR LINK OU BOT)
          ====================================================================== -->
-    <section id="tab-duel-view" class="hidden" aria-label="Modo Duelo 1v1 Online">
+    <section id="tab-duel-view" class="hidden" aria-label="Modo Duelo 1v1">
 
-      <!-- FASE 1: LOBBY DE DUELO -->
+      <!-- LOBBY -->
       <div id="duel-phase-lobby" class="surface-card">
         <div class="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <span class="tag-pill">P2P Direto no Navegador (Sem Servidor)</span>
-            <h2 class="text-lg font-bold text-white mt-1">Arena Duelo 1v1: Um Lado Contra o Outro</h2>
+            <span class="editorial-kicker">Disputa Direta 1 contra 1</span>
+            <h2 class="text-lg font-bold text-white mt-1">Duelo em Tempo Real</h2>
             <p class="text-xs text-zinc-300 mt-1">
-              O computador de quem cria a sala vira o servidor da partida. Cada lado envia uma palavra por rodada para tentar tomar o Trono e acertar 100% primeiro!
+              Cada jogador manda uma palavra por rodada. A mais próxima fica no trono e quem cravar 100% primeiro vence.
             </p>
           </div>
           <div style="min-width: 220px;">
-            <label for="duel-player-name" class="text-xs text-zinc-400">Seu Apelido no Duelo</label>
-            <input id="duel-player-name" type="text" class="word-input mt-1" value="Guilherme" maxlength="18" placeholder="Seu nome..." />
+            <label for="duel-player-name" class="text-xs text-zinc-400">Seu nome na sala</label>
+            <input id="duel-player-name" type="text" class="word-input mt-1" value="Guilherme" maxlength="18" placeholder="Seu apelido..." />
           </div>
         </div>
 
         <div class="duel-lobby-grid">
-          <!-- Opcao A: Fila Rapida + Bot Automatico -->
           <div class="duel-slot-card is-champion-slot">
             <div>
-              <span class="tag-pill">Matchmaking Rapido</span>
-              <h3 class="text-white font-bold mt-2">Buscar Partida Online</h3>
-              <p class="text-xs text-zinc-300 mt-1">
-                Procura outro jogador online na fila. Se ninguem aparecer em <strong>10 segundos</strong>, o <strong>Bot Estrategista</strong> entra automaticamente contra voce!
+              <h3 class="text-white font-bold">Partida Rápida (30s por rodada)</h3>
+              <p class="text-xs text-zinc-300 mt-2">
+                Procura outro jogador disponível na fila. Se ninguém aparecer em 10 segundos, entra o Bot Estrategista contra você.
               </p>
             </div>
             <div class="flex flex-wrap gap-2 mt-4">
               <button type="button" id="btn-duel-quick-match" class="btn-primary flex-1">
-                Buscar Partida (10s ou Bot)
+                Buscar partida (10s ou Bot)
               </button>
               <button type="button" id="btn-duel-force-bot" class="btn-secondary">
-                Jogar vs Bot Agora
+                Jogar vs Bot
               </button>
             </div>
           </div>
 
-          <!-- Opcao B: Sala Privada com Amigo (Codigo / Link) -->
           <div class="duel-slot-card is-challenger-slot">
             <div>
-              <span class="tag-pill">Sala Privada com Amigo</span>
-              <h3 class="text-white font-bold mt-2">Criar ou Entrar com Codigo</h3>
-              <p class="text-xs text-zinc-300 mt-1">
-                Crie uma sala e mande o link no WhatsApp para seu amigo, ou cole o codigo da sala dele abaixo.
+              <h3 class="text-white font-bold">Sala Privada com Amigo</h3>
+              <p class="text-xs text-zinc-300 mt-2">
+                Escolha o tempo de resposta, crie uma sala e mande o convite pronto no WhatsApp para seu amigo entrar direto.
               </p>
             </div>
             <div class="flex flex-col gap-2 mt-3">
               <div>
-                <label for="duel-room-time-limit" class="text-xs text-zinc-400">Tempo Limite por Rodada (Sala Criada)</label>
+                <label for="duel-room-time-limit" class="text-xs text-zinc-400">Tempo limite por rodada</label>
                 <select id="duel-room-time-limit" class="select-control w-full mt-1">
-                  <option value="15">15 segundos (Relampago)</option>
-                  <option value="30" selected>30 segundos (Padrao)</option>
+                  <option value="15">15 segundos (Relâmpago)</option>
+                  <option value="30" selected>30 segundos (Padrão)</option>
                   <option value="45">45 segundos</option>
-                  <option value="60">60 segundos (Tatico)</option>
+                  <option value="60">60 segundos (Tático)</option>
                   <option value="0">Sem limite de tempo</option>
                 </select>
               </div>
               <button type="button" id="btn-duel-create-room" class="btn-primary w-full mt-1">
-                Criar Sala Privada (Gerar Codigo)
+                Criar sala privada
               </button>
               <div class="flex gap-2 mt-1">
-                <input id="duel-join-code" type="text" class="word-input" placeholder="Codigo ex: AET-4821" autocomplete="off" />
+                <input id="duel-join-code" type="text" class="word-input" placeholder="Código ex: AET-4821" autocomplete="off" />
                 <button type="button" id="btn-duel-join-room" class="btn-secondary">Entrar</button>
               </div>
             </div>
@@ -312,66 +312,63 @@
         </div>
       </div>
 
-      <!-- FASE 2: AGUARDANDO OPONENTE / PROCURANDO PARTIDA -->
+      <!-- ESPERA / BUSCA -->
       <div id="duel-phase-searching" class="surface-card hidden" style="text-align: center; padding: 2rem 1.25rem;">
-        <span class="tag-pill">Conexao P2P Ativa</span>
-        <h3 id="duel-wait-title" class="text-lg font-bold text-white mt-2">Procurando Oponente Online...</h3>
+        <span class="editorial-kicker">Sala Conectada</span>
+        <h3 id="duel-wait-title" class="text-lg font-bold text-white mt-2">Procurando oponente...</h3>
         <p id="duel-wait-desc" class="text-sm text-zinc-300 mt-2"></p>
 
         <div id="duel-room-code-display" class="duel-room-code-pill hidden">AET-0000</div>
 
         <div class="flex flex-wrap justify-center gap-3 mt-4">
-          <button type="button" id="btn-duel-copy-link" class="btn-primary hidden">Copiar Link da Sala</button>
+          <button type="button" id="btn-duel-copy-link" class="btn-primary hidden">Copiar Convite para Amigos</button>
           <button type="button" id="btn-duel-wait-bot" class="btn-secondary">Enfrentar Bot Agora</button>
           <button type="button" id="btn-duel-cancel-wait" class="btn-secondary">Cancelar</button>
         </div>
       </div>
 
-      <!-- FASE 3: ARENA 1v1 ATIVA -->
+      <!-- ARENA 1v1 -->
       <div id="duel-phase-arena" class="hidden">
         <div class="surface-card">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h3 class="section-label" style="margin-bottom:0">Duelo em Tempo Real — Quem Acerta Primeiro Vence</h3>
-            <button type="button" id="btn-duel-leave-arena" class="btn-secondary">Sair da Sala</button>
+            <h3 class="section-label" style="margin-bottom:0">Duelo 1v1 — Quem acertar primeiro vence</h3>
+            <button type="button" id="btn-duel-leave-arena" class="btn-secondary">Sair da sala</button>
           </div>
 
-          <!-- Placar dos 2 Lados -->
           <div class="duel-scoreboard-bar">
             <div class="duel-player-banner">
-              <span id="duel-my-label" class="text-xs font-bold uppercase tracking-wider text-amber-300">Voce</span>
+              <span id="duel-my-label" class="text-xs font-bold uppercase tracking-wider text-amber-300">Você</span>
               <strong id="duel-my-score" class="font-mono text-white">0 pts</strong>
             </div>
             <div class="flex flex-col items-center gap-1">
-              <span id="duel-round-badge" class="tag-pill">Rodada 1</span>
+              <span id="duel-round-badge" class="editorial-kicker">Rodada 1</span>
               <span id="duel-turn-timer" class="duel-timer-pill">30s</span>
             </div>
             <div class="duel-player-banner is-right">
-              <span id="duel-opp-label" class="text-xs font-bold uppercase tracking-wider text-sky-300">Adversario</span>
+              <span id="duel-opp-label" class="text-xs font-bold uppercase tracking-wider text-sky-300">Adversário</span>
               <strong id="duel-opp-score" class="font-mono text-white">0 pts</strong>
             </div>
           </div>
 
-          <!-- Trono Central (Palavra Mais Proxima Atual) -->
           <div id="duel-throne-card" class="duel-throne-panel"></div>
 
-          <!-- Lado Esquerdo (Voce) VS Lado Direito (Adversario/Bot) -->
           <form id="form-duel-turn">
             <div class="duel-arena-grid">
               <div class="duel-slot-card is-champion-slot">
                 <div>
-                  <label for="duel-my-word-input" class="text-xs font-bold uppercase tracking-wider text-amber-300">Seu Lado: Digite 1 Palavra</label>
+                  <label for="duel-my-word-input" class="text-xs font-bold uppercase tracking-wider text-amber-300">Seu lado: digite 1 palavra</label>
                   <input id="duel-my-word-input" type="text" class="word-input mt-2" placeholder="Sua palavra da rodada..." autocomplete="off" />
                   <p id="duel-my-status" class="text-xs text-zinc-300 mt-2">Sua vez: digite uma palavra.</p>
                 </div>
                 <button type="submit" id="btn-duel-send-word" class="btn-primary w-full mt-3">
-                  Enviar Jogada
+                  Enviar jogada
                 </button>
               </div>
 
               <div class="vs-divider-badge">VS</div>
 
               <div class="duel-slot-card is-challenger-slot" style="justify-content: center; text-align: center;">
-                <span class="text-xs font-bold uppercase tracking-wider text-sky-300">Lado do Adversario</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-300">Lado do adversário</span>
                 <p id="duel-opp-status" class="text-xs text-zinc-400 mt-3">Aguardando jogada do oponente...</p>
               </div>
             </div>
@@ -382,7 +379,7 @@
         </div>
 
         <div class="surface-card mt-4">
-          <h3 class="section-label">Historico do Duelo 1v1</h3>
+          <h3 class="section-label">Histórico do Duelo</h3>
           <div id="duel-pvp-history"></div>
         </div>
       </div>
@@ -390,61 +387,58 @@
     </section>
   </div>
 
-  <!-- ========================================================================
-       MODAL: MODO 2 JOGADORES / DEFINIR PALAVRA SECRETA PERSONALIZADA
-       ======================================================================== -->
+  <!-- MODAL: CRIAR PALAVRA SECRETA -->
   <div id="modal-custom-word" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-custom-title">
     <div class="modal-box">
       <div class="flex justify-between items-center mb-3">
-        <h3 id="modal-custom-title" class="section-label" style="margin-bottom:0">Desafiar Amigo / Criar Palavra Secreta</h3>
+        <h3 id="modal-custom-title" class="section-label" style="margin-bottom:0">Criar Palavra Secreta</h3>
         <button type="button" id="btn-close-custom-modal" class="btn-secondary">Fechar</button>
       </div>
       <p class="text-xs text-zinc-300 mb-3">
-        Defina qual sera a Palavra Secreta desta partida para outra pessoa adivinhar (ou adicione uma palavra nova ao dicionario do jogo).
+        Defina uma palavra secreta oculta para outra pessoa tentar descobrir aqui no computador ou celular.
       </p>
 
       <form id="form-custom-word" class="flex-col gap-3">
         <div>
-          <label for="input-custom-secret" class="text-xs text-zinc-400">Palavra Secreta (ficara oculta na partida)</label>
+          <label for="input-custom-secret" class="text-xs text-zinc-400">Palavra secreta (fica oculta)</label>
           <input id="input-custom-secret" type="password" class="word-input mt-1" placeholder="Digite a palavra secreta..." required />
         </div>
 
         <div>
-          <label for="select-custom-cluster" class="text-xs text-zinc-400">Tema Principal da Palavra</label>
+          <label for="select-custom-cluster" class="text-xs text-zinc-400">Tema da palavra</label>
           <select id="select-custom-cluster" class="select-control w-full mt-1">
-            <option value="transporte_rodas">Veiculos, Carros & Rodovia</option>
-            <option value="moradia_casa">Casa, Moveis & Construcao</option>
-            <option value="vida_filosofia_emocao">Vida, Mente & Sentimentos</option>
-            <option value="alimentacao_bebida">Alimentos, Culinaria & Bebidas</option>
-            <option value="natureza_clima">Natureza, Praias & Clima</option>
-            <option value="animais_fauna">Animais & Fauna</option>
-            <option value="corpo_saude">Corpo Humano & Saude</option>
-            <option value="tecnologia_ciencias">Tecnologia, Computacao & Escola</option>
-            <option value="esporte_musica_lazer">Esportes, Futebol & Musica</option>
-            <option value="vestuario_moda">Vestuario & Acessorios</option>
-            <option value="sociedade_cidade">Cidade, Dinheiro & Profissoes</option>
-            <option value="tempo_espaco">Tempo, Estacoes & Universo</option>
+            <option value="transporte_rodas">Veículos, Carros e Rodovia</option>
+            <option value="moradia_casa">Casa, Móveis e Construção</option>
+            <option value="vida_filosofia_emocao">Vida, Mente e Sentimentos</option>
+            <option value="alimentacao_bebida">Alimentos, Culinária e Bebidas</option>
+            <option value="natureza_clima">Natureza, Praias e Clima</option>
+            <option value="animais_fauna">Animais e Fauna</option>
+            <option value="corpo_saude">Corpo Humano e Saúde</option>
+            <option value="tecnologia_ciencias">Tecnologia, Computação e Escola</option>
+            <option value="esporte_musica_lazer">Esportes, Futebol e Música</option>
+            <option value="vestuario_moda">Vestuário e Acessórios</option>
+            <option value="sociedade_cidade">Cidade, Dinheiro e Profissões</option>
+            <option value="tempo_espaco">Tempo, Estações e Universo</option>
           </select>
         </div>
 
         <div>
-          <label for="input-custom-links" class="text-xs text-zinc-400">Palavras Muito Proximas (opcional, separadas por virgula)</label>
-          <input id="input-custom-links" type="text" class="word-input mt-1" placeholder="Ex: carro, pneu, borracha, aro, asfalto" />
+          <label for="input-custom-links" class="text-xs text-zinc-400">Palavras próximas (opcional, separadas por vírgula)</label>
+          <input id="input-custom-links" type="text" class="word-input mt-1" placeholder="Ex: carro, pneu, borracha, aro" />
         </div>
 
         <div>
-          <label for="input-custom-hint" class="text-xs text-zinc-400">Dica Personalizada (opcional)</label>
+          <label for="input-custom-hint" class="text-xs text-zinc-400">Dica personalizada (opcional)</label>
           <input id="input-custom-hint" type="text" class="word-input mt-1" placeholder="Ex: Fica presa no eixo do carro..." />
         </div>
 
         <button type="submit" class="btn-primary w-full mt-2">
-          Iniciar Partida com Esta Palavra Secreta
+          Começar com esta palavra
         </button>
       </form>
     </div>
   </div>
 
-  <!-- SCRIPTS MODULARES (100% Portatil: funciona em file:// e http://) -->
   <script src="js/vendor/peerjs.min.js"></script>
   <script src="js/dictionary-data.js"></script>
   <script src="js/semantic-engine.js"></script>
@@ -454,4 +448,3 @@
   <script src="js/app.js"></script>
 </body>
 </html>
-

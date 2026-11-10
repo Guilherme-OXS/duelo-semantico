@@ -841,14 +841,14 @@ window.DUELO.DuelMode = (function () {
         finishBox.classList.remove("hidden");
         finishBox.innerHTML =
           '<div class="victory-celebration-card">' +
-            '<span class="tag-pill">' + (iWon ? "Vitoria no Duelo!" : "Fim do Duelo!") + '</span>' +
+            '<span class="editorial-kicker">' + (iWon ? "Vitória no Duelo" : "Fim do Duelo") + '</span>' +
             '<h3 class="victory-word-heading">' + (state.revealedSecret || "") + '</h3>' +
             '<p class="text-sm text-zinc-300 mt-1">' +
-              (iWon ? "Parabens! Voce cravou a Palavra Secreta antes de " + state.oppName + "!" : state.oppName + " acertou a Palavra Secreta em cheio primeiro!") +
+              (iWon ? "Parabéns! Você acertou a palavra secreta antes de " + state.oppName + "." : state.oppName + " acertou a palavra secreta primeiro.") +
             '</p>' +
-            '<div class="mt-4 flex justify-center gap-3">' +
+            '<div class="mt-4 flex flex-wrap justify-center gap-3">' +
               '<button type="button" id="btn-duel-rematch" class="btn-primary">Jogar Revanche</button>' +
-              '<button type="button" id="btn-duel-back-lobby" class="btn-secondary">Voltar ao Lobby</button>' +
+              '<button type="button" id="btn-duel-back-lobby" class="btn-secondary">Voltar ao Início</button>' +
             '</div>' +
           '</div>';
 
@@ -960,10 +960,11 @@ window.DUELO.DuelMode = (function () {
       btnCopy.addEventListener("click", function () {
         const base = window.location.origin + window.location.pathname;
         const shareUrl = base + "?sala=" + encodeURIComponent(state.roomCode);
+        const inviteMsg = "Bora jogar Duelo Semântico 1v1? Entra na minha sala (" + state.roomCode + "): " + shareUrl;
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(shareUrl).then(function () {
-            btnCopy.textContent = "Link Copiado!";
-            setTimeout(function () { btnCopy.textContent = "Copiar Link da Sala"; }, 2000);
+          navigator.clipboard.writeText(inviteMsg).then(function () {
+            btnCopy.textContent = "Convite Copiado!";
+            setTimeout(function () { btnCopy.textContent = "Copiar Convite para Amigos"; }, 2200);
           }).catch(function () {});
         }
       });
