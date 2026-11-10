@@ -210,12 +210,12 @@ window.DUELO.Engine = (function () {
         }
       }
 
-      if (cleaned.length >= 6) {
+      if (cleaned.length >= 5) {
         let bestMatch = null;
         let bestDist = 99;
         for (let i = 0; i < allKeys.length; i++) {
           const k = allKeys[i];
-          if (k.charAt(0) !== cleaned.charAt(0)) continue;
+          if (k.slice(0, 2) !== cleaned.slice(0, 2)) continue;
           if (Math.abs(k.length - cleaned.length) > 1) continue;
           const d = levenshtein(cleaned, k);
           if (d <= 1 && d < bestDist) {
@@ -597,9 +597,14 @@ window.DUELO.Engine = (function () {
       if (score < directFloor) score = directFloor;
     }
 
-    score += deterministicJitter(w1, w2);
+    const jit = deterministicJitter(w1, w2);
+    if (score < 8.0) {
+      score = Math.max(4.8, score + 3.8 + jit * 2.4);
+    } else {
+      score += jit;
+    }
 
-    const clamped = Math.max(4.5, Math.min(98.8, Math.round(score * 10) / 10));
+    const clamped = Math.max(4.8, Math.min(98.8, Math.round(score * 10) / 10));
 
     let tier = "cold";
     let tierLabel = "Frio · Distante";
