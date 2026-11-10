@@ -37,11 +37,24 @@ window.DUELO.Engine = (function () {
 
   function stripAccents(str) {
     return (str || "")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9-\s]/g, "")
+      .replace(/\s+/g, " ")
       .trim();
+  }
+
+  function cleanDisplayForm(originalStr, canonicalWord) {
+    const cleanOrig = (originalStr || "")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/[^\p{L}\p{N}-]/gu, "")
+      .trim();
+    if (cleanOrig && stripAccents(cleanOrig) === canonicalWord) {
+      return cleanOrig.toUpperCase();
+    }
+    return canonicalWord.toUpperCase();
   }
 
   function levenshtein(a, b) {
@@ -498,7 +511,7 @@ window.DUELO.Engine = (function () {
     if (w1 === w2) {
       return {
         word: w1,
-        displayWord: w1.toUpperCase(),
+        displayWord: cleanDisplayForm(resolved.original, w1),
         originalInput: resolved.original,
         correctedFrom: resolved.correctedFrom,
         category: e1.category,
@@ -507,7 +520,7 @@ window.DUELO.Engine = (function () {
         isExact: true,
         tier: "exact",
         tierLabel: "Palavra Exata!",
-        explanation: "Voce descobriu a Palavra Secreta exata!"
+        explanation: "Você descobriu a palavra secreta exata!"
       };
     }
 
@@ -580,7 +593,7 @@ window.DUELO.Engine = (function () {
 
     return {
       word: w1,
-      displayWord: w1.toUpperCase(),
+      displayWord: cleanDisplayForm(resolved.original, w1),
       originalInput: resolved.original,
       correctedFrom: resolved.correctedFrom,
       category: e1.category,

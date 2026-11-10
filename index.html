@@ -22,7 +22,7 @@
   <meta name="twitter:image" content="assets/og-cover.jpg" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=5" />
 </head>
 <body class="app-shell">
 
@@ -119,6 +119,8 @@
               </div>
             </div>
 
+            <div id="inline-alert-box" class="alert-box hidden" style="margin-top:0; margin-bottom:0.85rem;" role="alert"></div>
+
             <!-- 1ª RODADA: DUAS PALAVRAS -->
             <div id="panel-round-1">
               <p class="text-sm text-zinc-300 mb-3">
@@ -207,7 +209,6 @@
               <div id="quick-suggestions-cluster" class="flex flex-wrap gap-2"></div>
             </div>
 
-            <div id="inline-alert-box" class="alert-box hidden" role="alert"></div>
             <div id="hint-display-box" class="hint-box hidden"></div>
             <div id="victory-banner" class="hidden"></div>
             <div id="duel-verdict-banner" class="verdict-banner hidden"></div>
@@ -247,6 +248,8 @@
          ABA 2: DUELO 1v1 (AMIGOS POR LINK OU BOT)
          ====================================================================== -->
     <section id="tab-duel-view" class="hidden" aria-label="Modo Duelo 1v1">
+
+      <div id="duel-alert-box" class="alert-box hidden" style="margin-top:0; margin-bottom:0.85rem;" role="alert"></div>
 
       <!-- LOBBY -->
       <div id="duel-phase-lobby" class="surface-card">
@@ -374,7 +377,6 @@
             </div>
           </form>
 
-          <div id="duel-alert-box" class="alert-box hidden" role="alert"></div>
           <div id="duel-finish-banner" class="hidden"></div>
         </div>
 
@@ -439,12 +441,12 @@
     </div>
   </div>
 
-  <script src="js/vendor/peerjs.min.js"></script>
-  <script src="js/dictionary-data.js"></script>
-  <script src="js/semantic-engine.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/radar-canvas.js"></script>
-  <script src="js/duel-mode.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/vendor/peerjs.min.js?v=5"></script>
+  <script src="js/dictionary-data.js?v=5"></script>
+  <script src="js/semantic-engine.js?v=5"></script>
+  <script src="js/audio.js?v=5"></script>
+  <script src="js/radar-canvas.js?v=5"></script>
+  <script src="js/duel-mode.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>

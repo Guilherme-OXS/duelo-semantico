@@ -514,15 +514,19 @@ window.DUELO.DuelMode = (function () {
     if (state.phase !== "playing" || state.myReady) return;
 
     const inp = qs("#duel-my-word-input");
-    const raw = (inp ? inp.value : "").trim();
+    const raw = (inp ? inp.value : "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
     if (!raw) {
-      showDuelAlert("Digite uma palavra em portugues para enviar ao duelo!");
+      showDuelAlert("Digite uma palavra em português para enviar ao duelo!");
       return;
     }
 
     const resolvedCheck = window.DUELO.Engine.resolveWord(raw, false);
+    if (!resolvedCheck || !resolvedCheck.canonical) {
+      showDuelAlert("Digite uma palavra válida em português para enviar ao duelo!");
+      return;
+    }
     if (state.usedWords.indexOf(resolvedCheck.canonical) !== -1) {
-      showDuelAlert("A palavra '" + resolvedCheck.canonical.toUpperCase() + "' ja foi usada nesta partida!");
+      showDuelAlert("A palavra '" + resolvedCheck.canonical.toUpperCase() + "' já foi usada nesta partida!");
       return;
     }
 
@@ -532,15 +536,23 @@ window.DUELO.DuelMode = (function () {
     if (inp) inp.value = "";
     render();
 
-    if (state.role === "guest") {
-      sendToOpponent({ type: "submit_word", word: raw });
-    } else {
-      sendToOpponent({ type: "opp_ready_ack" });
-      if (state.isBot && !state.oppReady) {
-        triggerBotMove();
+    try {
+      if (state.role === "guest") {
+        sendToOpponent({ type: "submit_word", word: raw });
       } else {
-        await tryResolveRoundOnHost();
+        sendToOpponent({ type: "opp_ready_ack" });
+        if (state.isBot && !state.oppReady) {
+          triggerBotMove();
+        } else {
+          await tryResolveRoundOnHost();
+        }
       }
+    } catch (err) {
+      console.error("[DUELO 1v1] Erro ao enviar jogada:", err);
+      state.myReady = false;
+      state.myPendingWord = null;
+      showDuelAlert("Não foi possível avaliar essa palavra agora. Tente outra!");
+      render();
     }
   }
 
@@ -621,15 +633,21 @@ window.DUELO.DuelMode = (function () {
       return;
     }
 
-    const myEval = state.myReady
-      ? await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord)
-      : createTimeoutEval();
+    try {
+      const myEval = state.myReady
+        ? await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord)
+        : createTimeoutEval();
 
-    const oppEval = state.oppReady
-      ? await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord)
-      : createTimeoutEval();
+      const oppEval = state.oppReady
+        ? await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord)
+        : createTimeoutEval();
 
-    await resolveRoundWithEvals(myEval, oppEval);
+      await resolveRoundWithEvals(myEval, oppEval);
+    } catch (err) {
+      console.error("[DUELO 1v1] Erro ao resolver tempo esgotado:", err);
+      sendToOpponent({ type: "round_timeout_skip", round: state.round });
+      applyTimeoutSkip(state.round);
+    }
   }
 
   function applyTimeoutSkip(roundNum) {
@@ -647,10 +665,21 @@ window.DUELO.DuelMode = (function () {
     if (state.role !== "host" || !state.myReady || !state.oppReady) return;
     stopTurnTimer();
 
-    const myEval = await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord);
-    const oppEval = await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord);
+    try {
+      const myEval = await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord);
+      const oppEval = await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord);
 
-    await resolveRoundWithEvals(myEval, oppEval);
+      await resolveRoundWithEvals(myEval, oppEval);
+    } catch (err) {
+      console.error("[DUELO 1v1] Erro ao resolver rodada:", err);
+      state.myReady = false;
+      state.oppReady = false;
+      state.myPendingWord = null;
+      state.oppPendingWord = null;
+      showDuelAlert("Erro ao comparar as palavras da rodada. Enviem novamente!");
+      startTurnTimer();
+      render();
+    }
   }
 
   async function resolveRoundWithEvals(myEval, oppEval) {
@@ -964,6 +993,11 @@ window.DUELO.DuelMode = (function () {
     if (!el) return;
     el.textContent = msg;
     el.classList.remove("hidden");
+    if (typeof el.scrollIntoView === "function") {
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (e) {}
+    }
   }
 
   function hideDuelAlert() {

@@ -262,52 +262,68 @@ window.DUELO = window.DUELO || {};
 
     const in1 = qs("#input-round1-word1");
     const in2 = qs("#input-round1-word2");
-    const w1Raw = (in1.value || "").trim();
-    const w2Raw = (in2.value || "").trim();
+    let w1Raw = (in1.value || "").trim();
+    let w2Raw = (in2.value || "").trim();
+
+    // Se o usuario digitou as duas palavras no 1o campo separadas por espaco (ex: "agua fogo"), divide automaticamente!
+    if (w1Raw && !w2Raw && /\s+/.test(w1Raw)) {
+      const parts = w1Raw.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        w1Raw = parts[0];
+        w2Raw = parts[1];
+        in1.value = w1Raw;
+        in2.value = w2Raw;
+      }
+    }
 
     if (!w1Raw && !w2Raw) {
       highlightMissingInput(in1);
-      showInlineAlert("Digite duas palavras para o primeiro duelo (ou clique em um dos exemplos abaixo).");
+      showInlineAlert("Digite duas palavras para a 1ª rodada (ou clique nas sugestões abaixo).");
       return;
     }
     if (!w1Raw) {
       highlightMissingInput(in1);
-      showInlineAlert("Falta preencher a primeira palavra!");
+      showInlineAlert("Falta preencher a primeira palavra.");
       return;
     }
     if (!w2Raw) {
       highlightMissingInput(in2);
-      showInlineAlert("Voce digitou '" + w1Raw + "'. Agora digite a segunda palavra para duelar contra ela (ex: carro, tempo...) ou clique nas sugestoes abaixo!");
+      showInlineAlert("Você digitou '" + w1Raw + "'. Agora digite a segunda palavra ao lado para comparar (ou clique em uma sugestão).");
       return;
     }
 
     hideMissingHighlight();
     hideInlineAlert();
 
-    const r1Sync = window.DUELO.Engine.resolveWord(w1Raw, false);
-    const r2Sync = window.DUELO.Engine.resolveWord(w2Raw, false);
-    if ((r1Sync && (!r1Sync.known || r1Sync.source === "morpheme")) || (r2Sync && (!r2Sync.known || r2Sync.source === "morpheme"))) {
-      setBusyState(true, "Consultando Dicionario Online...");
+    try {
+      const r1Sync = window.DUELO.Engine.resolveWord(w1Raw, false);
+      const r2Sync = window.DUELO.Engine.resolveWord(w2Raw, false);
+      if ((r1Sync && (!r1Sync.known || r1Sync.source === "morpheme")) || (r2Sync && (!r2Sync.known || r2Sync.source === "morpheme"))) {
+        setBusyState(true, "Consultando dicionário...");
+      }
+
+      const [eval1, eval2] = await Promise.all([
+        window.DUELO.Engine.evaluateWordAsync(w1Raw, gameState.secretWord),
+        window.DUELO.Engine.evaluateWordAsync(w2Raw, gameState.secretWord)
+      ]);
+
+      if (!eval1 || !eval2) {
+        showInlineAlert("Por favor, digite palavras válidas em português.");
+        return;
+      }
+
+      if (eval1.word === eval2.word) {
+        highlightMissingInput(in2);
+        showInlineAlert("As duas palavras são iguais (" + eval1.displayWord + "). Digite duas palavras diferentes para comparar.");
+        return;
+      }
+
+      processDuel(eval1, eval2);
+    } catch (err) {
+      showInlineAlert("Não foi possível avaliar agora. Tente novamente em instantes.");
+    } finally {
+      setBusyState(false);
     }
-
-    const [eval1, eval2] = await Promise.all([
-      window.DUELO.Engine.evaluateWordAsync(w1Raw, gameState.secretWord),
-      window.DUELO.Engine.evaluateWordAsync(w2Raw, gameState.secretWord)
-    ]);
-    setBusyState(false);
-
-    if (!eval1 || !eval2) {
-      showInlineAlert("Por favor, digite termos validos em portugues.");
-      return;
-    }
-
-    if (eval1.word === eval2.word) {
-      highlightMissingInput(in2);
-      showInlineAlert("As duas palavras sao iguais (" + eval1.displayWord + "). Digite duas palavras diferentes para o programa comparar!");
-      return;
-    }
-
-    processDuel(eval1, eval2);
   }
 
   // ==========================================================================
@@ -329,36 +345,41 @@ window.DUELO = window.DUELO || {};
     hideMissingHighlight();
     hideInlineAlert();
 
-    const rSync = window.DUELO.Engine.resolveWord(challengerRaw, false);
-    if (rSync && (!rSync.known || rSync.source === "morpheme")) {
-      setBusyState(true, "Consultando Dicionario Online...");
-    }
+    try {
+      const rSync = window.DUELO.Engine.resolveWord(challengerRaw, false);
+      if (rSync && (!rSync.known || rSync.source === "morpheme")) {
+        setBusyState(true, "Consultando dicionário...");
+      }
 
-    const evalChallenger = await window.DUELO.Engine.evaluateWordAsync(challengerRaw, gameState.secretWord);
-    setBusyState(false);
-    if (!evalChallenger) {
-      showInlineAlert("Digite uma palavra valida da lingua portuguesa.");
-      return;
-    }
+      const evalChallenger = await window.DUELO.Engine.evaluateWordAsync(challengerRaw, gameState.secretWord);
+      if (!evalChallenger) {
+        showInlineAlert("Digite uma palavra válida da língua portuguesa.");
+        return;
+      }
 
-    if (evalChallenger.word === gameState.champion.word) {
-      highlightMissingInput(inputEl);
-      showInlineAlert("A palavra " + evalChallenger.displayWord + " ja e a palavra mais proxima atual! Digite outra palavra.");
-      return;
-    }
+      if (evalChallenger.word === gameState.champion.word) {
+        highlightMissingInput(inputEl);
+        showInlineAlert("A palavra " + evalChallenger.displayWord + " já é a mais próxima atual! Digite outra.");
+        return;
+      }
 
-    const alreadyTested = gameState.testedWords.find(function (t) {
-      return t.word === evalChallenger.word;
-    });
-    if (alreadyTested) {
-      highlightMissingInput(inputEl);
-      showInlineAlert("Voce ja usou a palavra " + evalChallenger.displayWord + " nesta partida (" + alreadyTested.score.toFixed(1) + "%). Digite uma palavra nova!");
-      return;
-    }
+      const alreadyTested = gameState.testedWords.find(function (t) {
+        return t.word === evalChallenger.word;
+      });
+      if (alreadyTested) {
+        highlightMissingInput(inputEl);
+        showInlineAlert("Você já usou a palavra " + evalChallenger.displayWord + " nesta partida (" + alreadyTested.score.toFixed(1) + "%). Tente uma palavra nova!");
+        return;
+      }
 
-    inputEl.value = "";
-    processDuel(gameState.champion, evalChallenger);
-    inputEl.focus();
+      inputEl.value = "";
+      processDuel(gameState.champion, evalChallenger);
+      inputEl.focus();
+    } catch (err) {
+      showInlineAlert("Não foi possível comparar agora. Tente novamente.");
+    } finally {
+      setBusyState(false);
+    }
   }
 
   // ==========================================================================
@@ -693,6 +714,9 @@ window.DUELO = window.DUELO || {};
     if (!el) return;
     el.textContent = msg;
     el.classList.remove("hidden");
+    if (el.scrollIntoView) {
+      try { el.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e) {}
+    }
   }
 
   function hideInlineAlert() {
