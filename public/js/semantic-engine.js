@@ -590,11 +590,33 @@ window.DUELO.Engine = (function () {
       score += 2.0;
     }
 
-    // Conexao direta explicita entre clusters diferentes (ex: azeite <-> cozinha, roda <-> circulo) mantem piso semantico forte
-    if ((idxInSecret !== -1 || idxInGuess !== -1) && e1.cluster !== e2.cluster) {
+    // Conexao direta explicita entre clusters diferentes (ex: azeite <-> cozinha, papel <-> arvore) mantem piso semantico forte
+    const isDirect = idxInSecret !== -1 || idxInGuess !== -1;
+    if (isDirect && e1.cluster !== e2.cluster) {
       const crossRank = idxInSecret !== -1 ? idxInSecret : idxInGuess;
       const directFloor = 58.0 + Math.max(0, 6.0 - crossRank * 1.2) + (idxInSecret !== -1 && idxInGuess !== -1 ? 3.0 : 0);
       if (score < directFloor) score = directFloor;
+    } else if (!isDirect) {
+      // Ponte de 2 saltos no grafo (A -> X -> B ou compartilham vizinho) impede quedas bruscas para ~8% quando o jogador segue uma trilha certa (ex: arvore -> floresta/desmatamento)
+      let twoHopHits = 0;
+      const wordsDb = window.DUELO_DATA.WORDS || {};
+      for (let i = 0; i < links2.length; i++) {
+        const midEntry = wordsDb[links2[i]];
+        if (midEntry && Array.isArray(midEntry.links) && midEntry.links.indexOf(w1) !== -1) {
+          twoHopHits++;
+        }
+      }
+      for (let j = 0; j < links1.length; j++) {
+        const midEntry = wordsDb[links1[j]];
+        if (midEntry && Array.isArray(midEntry.links) && midEntry.links.indexOf(w2) !== -1) {
+          twoHopHits++;
+        }
+      }
+      const hopStrength = sharedCount + twoHopHits;
+      if (hopStrength > 0) {
+        const twoHopFloor = Math.min(46.0, 26.0 + sharedCount * 6.5 + twoHopHits * 5.0);
+        if (score < twoHopFloor) score = twoHopFloor;
+      }
     }
 
     const jit = deterministicJitter(w1, w2);
