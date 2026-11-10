@@ -26,6 +26,8 @@ window.DUELO.DuelMode = (function () {
   let turnTimer = null;
   let msgSeq = 0;
   let processedMsgIds = {};
+  let duelStartPromise = null;
+  let duelMatchSerial = 0;
 
   let state = {
     phase: "lobby", // "lobby" | "searching" | "waiting_room" | "playing" | "finished"
@@ -37,6 +39,7 @@ window.DUELO.DuelMode = (function () {
     myName: "Voce",
     oppName: "Adversario",
     secretWord: "",
+    matchToken: null,
     round: 1,
     champion: null, // { word, displayWord, score, tier, tierLabel, ownerRole, ownerName }
     myPendingWord: null,
@@ -133,6 +136,7 @@ window.DUELO.DuelMode = (function () {
   }
 
   function cleanupConnections() {
+    duelMatchSerial++;
     stopTurnTimer();
     if (searchTimer) {
       clearInterval(searchTimer);
@@ -276,6 +280,32 @@ window.DUELO.DuelMode = (function () {
     }
   }
 
+  function startHostSecretSession() {
+    const mySerial = ++duelMatchSerial;
+    const Api = window.DUELO.Api;
+    state.matchToken = null;
+    state.secretWord = "";
+
+    if (Api && !Api.isOfflineFallback()) {
+      duelStartPromise = Api.startMatch({ mode: "duel" })
+        .then(function (data) {
+          if (mySerial !== duelMatchSerial) return;
+          if (!data) {
+            state.secretWord = pickSecretWordForDuel();
+            return;
+          }
+          state.matchToken = data.matchToken;
+        })
+        .catch(function (err) {
+          if (mySerial !== duelMatchSerial) return;
+          showDuelAlert((err && err.message) || "Erro ao conectar ao servidor para iniciar duelo.");
+        });
+    } else {
+      duelStartPromise = null;
+      state.secretWord = pickSecretWordForDuel();
+    }
+  }
+
   function resetMatchData(isHost) {
     processedMsgIds = {};
     state.round = 1;
@@ -289,7 +319,14 @@ window.DUELO.DuelMode = (function () {
     state.history = [];
     state.winnerRole = null;
     state.revealedSecret = null;
-    state.secretWord = isHost ? pickSecretWordForDuel() : "";
+    state.matchToken = null;
+    state.secretWord = "";
+    if (isHost) {
+      startHostSecretSession();
+    } else {
+      duelMatchSerial++;
+      duelStartPromise = null;
+    }
   }
 
   // ==========================================================================
@@ -497,7 +534,9 @@ window.DUELO.DuelMode = (function () {
       if (state.role === "guest") {
         // Promove o cliente para finalizar contra o bot
         state.role = "host";
-        if (!state.secretWord) state.secretWord = pickSecretWordForDuel();
+        if (!state.matchToken && !state.secretWord) {
+          startHostSecretSession();
+        }
       }
       render();
       if (state.myReady && !state.oppReady) {
@@ -557,13 +596,40 @@ window.DUELO.DuelMode = (function () {
   }
 
   function triggerBotMove() {
+    const botSerial = duelMatchSerial;
     setTimeout(async function () {
-      if (state.phase !== "playing" || state.oppReady) return;
-      const botWord = chooseSmartBotWord();
-      state.oppPendingWord = botWord;
-      state.oppReady = true;
-      render();
-      await tryResolveRoundOnHost();
+      if (botSerial !== duelMatchSerial || state.phase !== "playing" || state.oppReady) return;
+      try {
+        if (duelStartPromise) await duelStartPromise;
+        let botWord = null;
+        const Api = window.DUELO.Api;
+
+        if (state.matchToken && Api) {
+          const res = await Api.pickBotWord(state.matchToken, {
+            round: state.round,
+            champScore: state.champion ? state.champion.score : 15,
+            usedWords: state.usedWords,
+            myPendingWord: state.myPendingWord
+          });
+          botWord = res && res.botWord;
+        } else if (Api && !Api.isOfflineFallback()) {
+          throw new Error("Sem sessão ativa do servidor para o Bot.");
+        } else {
+          botWord = chooseSmartBotWord();
+        }
+
+        if (botSerial !== duelMatchSerial || state.phase !== "playing" || state.oppReady) return;
+        state.oppPendingWord = botWord || "tempo";
+        state.oppReady = true;
+        render();
+        await tryResolveRoundOnHost();
+      } catch (err) {
+        console.error("[DUELO 1v1] Erro na jogada do Bot:", err);
+        state.myReady = false;
+        state.myPendingWord = null;
+        showDuelAlert((err && err.message) || "Erro ao consultar o Bot. Envie novamente!");
+        render();
+      }
     }, 1150);
   }
 
@@ -623,6 +689,46 @@ window.DUELO.DuelMode = (function () {
     };
   }
 
+  async function evaluateHostWordsPair(myWordOrNull, oppWordOrNull) {
+    if (duelStartPromise) await duelStartPromise;
+
+    const slots = [];
+    if (myWordOrNull !== null && myWordOrNull !== undefined) slots.push({ who: "my", word: myWordOrNull });
+    if (oppWordOrNull !== null && oppWordOrNull !== undefined) slots.push({ who: "opp", word: oppWordOrNull });
+
+    let myEval = createTimeoutEval();
+    let oppEval = createTimeoutEval();
+    if (slots.length === 0) return { myEval: myEval, oppEval: oppEval };
+
+    const Api = window.DUELO.Api;
+    let evalResults = [];
+
+    if (state.matchToken && Api) {
+      const res = await Api.evaluateWords(state.matchToken, slots.map(function (s) { return s.word; }));
+      evalResults = (res && res.results) || [];
+      if (res && res.revealedMeta && res.revealedMeta.displayWord) {
+        state.revealedSecret = res.revealedMeta.displayWord;
+      }
+    } else if (Api && !Api.isOfflineFallback()) {
+      throw new Error("Duelo aguardando sessão do servidor.");
+    } else {
+      evalResults = await Promise.all(
+        slots.map(function (s) {
+          return window.DUELO.Engine.evaluateWordAsync(s.word, state.secretWord);
+        })
+      );
+    }
+
+    slots.forEach(function (s, idx) {
+      const evObj = evalResults[idx];
+      if (!evObj) return;
+      if (s.who === "my") myEval = evObj;
+      else oppEval = evObj;
+    });
+
+    return { myEval: myEval, oppEval: oppEval };
+  }
+
   async function handleTurnTimeoutOnHost() {
     if (state.role !== "host" || state.phase !== "playing") return;
 
@@ -634,15 +740,11 @@ window.DUELO.DuelMode = (function () {
     }
 
     try {
-      const myEval = state.myReady
-        ? await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord)
-        : createTimeoutEval();
-
-      const oppEval = state.oppReady
-        ? await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord)
-        : createTimeoutEval();
-
-      await resolveRoundWithEvals(myEval, oppEval);
+      const pair = await evaluateHostWordsPair(
+        state.myReady ? state.myPendingWord : null,
+        state.oppReady ? state.oppPendingWord : null
+      );
+      await resolveRoundWithEvals(pair.myEval, pair.oppEval);
     } catch (err) {
       console.error("[DUELO 1v1] Erro ao resolver tempo esgotado:", err);
       sendToOpponent({ type: "round_timeout_skip", round: state.round });
@@ -666,10 +768,8 @@ window.DUELO.DuelMode = (function () {
     stopTurnTimer();
 
     try {
-      const myEval = await window.DUELO.Engine.evaluateWordAsync(state.myPendingWord, state.secretWord);
-      const oppEval = await window.DUELO.Engine.evaluateWordAsync(state.oppPendingWord, state.secretWord);
-
-      await resolveRoundWithEvals(myEval, oppEval);
+      const pair = await evaluateHostWordsPair(state.myPendingWord, state.oppPendingWord);
+      await resolveRoundWithEvals(pair.myEval, pair.oppEval);
     } catch (err) {
       console.error("[DUELO 1v1] Erro ao resolver rodada:", err);
       state.myReady = false;
@@ -737,6 +837,12 @@ window.DUELO.DuelMode = (function () {
       throneScore: newChampion ? newChampion.score : 0
     };
 
+    let revealedUpper = null;
+    if (finished) {
+      revealedUpper = state.revealedSecret ||
+        (myEval.isExact ? myEval.displayWord : (oppEval.isExact ? oppEval.displayWord : (state.secretWord ? state.secretWord.toUpperCase() : null)));
+    }
+
     const payload = {
       type: "round_result",
       round: state.round,
@@ -749,7 +855,7 @@ window.DUELO.DuelMode = (function () {
       roundEntry: roundEntry,
       finished: finished,
       winnerRole: winnerRole,
-      revealedSecret: finished ? state.secretWord.toUpperCase() : null
+      revealedSecret: revealedUpper
     };
 
     sendToOpponent(payload);

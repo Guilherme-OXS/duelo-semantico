@@ -10,9 +10,9 @@ echo.
 if exist "%DRIVE%\Linguagens\Python\python.exe" (
     echo [+] Iniciando servidor local na porta 8080 via Python Portatil...
     start "" "http://localhost:8080"
-    "%DRIVE%\Linguagens\Python\python.exe" -m http.server 8080
+    "%DRIVE%\Linguagens\Python\python.exe" -m http.server 8080 -d public
 ) else (
-    echo [+] Abrindo index.html diretamente no navegador...
-    start "" "%~dp0index.html"
+    echo [+] Abrindo public\index.html diretamente no navegador...
+    start "" "%~dp0public\index.html"
 )
 

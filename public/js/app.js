@@ -13,14 +13,24 @@ window.DUELO = window.DUELO || {};
 (function () {
   const STORAGE_KEY = "duelo_semantico_stats_v1";
   const RECENT_SECRETS_KEY = "duelo_semantico_recent_secrets_v1";
+  const DAILY_COMPLETION_KEY = "duelo_semantico_daily_done_v1";
+  const SOLO_MODE_KEY = "duelo_semantico_solo_mode_v1";
+
+  let dailyCountdownTimer = null;
+  let startMatchSerial = 0;
+  let pendingStartPromise = null;
 
   let gameState = {
-    mode: "practice",    // "practice" (modo teste livre) ou "daily" (palavra do dia estilo Termo)
+    mode: "practice",    // "practice" (modo treino livre) ou "daily" (palavra do dia unica para todos)
     gameCount: 0,
     secretWord: "",
+    matchToken: null,
+    revealedMeta: null,
     categoryFilter: "all",
     round: 1,
     isSolved: false,
+    wasRevealed: false,
+    isCustomSecret: false,
     champion: null,
     lastDuel: null,
     history: [],
@@ -39,6 +49,153 @@ window.DUELO = window.DUELO || {};
   function qs(sel) { return document.querySelector(sel); }
   function qsa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
 
+  function getTodayDateKey() {
+    const apiInfo = window.DUELO.Api && window.DUELO.Api.getServerDateInfo();
+    if (apiInfo && apiInfo.dateKey) return apiInfo.dateKey;
+    try {
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      return fmt.format(new Date());
+    } catch (e) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + d;
+    }
+  }
+
+  function loadPreferredMode() {
+    try {
+      const saved = localStorage.getItem(SOLO_MODE_KEY);
+      if (saved === "daily" || saved === "practice") return saved;
+    } catch (e) {}
+    return "practice";
+  }
+
+  function savePreferredMode(mode) {
+    try {
+      localStorage.setItem(SOLO_MODE_KEY, mode === "daily" ? "daily" : "practice");
+    } catch (e) {}
+  }
+
+  function getTodayDailyRecord() {
+    try {
+      const raw = localStorage.getItem(DAILY_COMPLETION_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.dateKey === getTodayDateKey() && parsed.secretWord) {
+        return parsed;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function buildWinChain(historyList) {
+    const chain = [];
+    const list = Array.isArray(historyList) ? historyList : [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const w = list[i].winner && list[i].winner.displayWord;
+      if (w && (chain.length === 0 || chain[chain.length - 1] !== w)) {
+        chain.push(w);
+      }
+    }
+    return chain;
+  }
+
+  function saveTodayDailyRecord(winner, totalRounds, wasRevealed) {
+    try {
+      const payload = {
+        dateKey: getTodayDateKey(),
+        secretWord: gameState.secretWord || winner.word,
+        displayWord: winner.displayWord,
+        hintText: (gameState.revealedMeta && gameState.revealedMeta.hint) || "",
+        rounds: totalRounds,
+        hintsUsed: gameState.hintsUsed,
+        revealed: !!wasRevealed,
+        chain: buildWinChain(gameState.history),
+        champion: gameState.champion,
+        history: gameState.history,
+        testedWords: gameState.testedWords
+      };
+      localStorage.setItem(DAILY_COMPLETION_KEY, JSON.stringify(payload));
+    } catch (e) {}
+  }
+
+  function isDailyLocked() {
+    return gameState.mode === "daily" && !gameState.isCustomSecret && !!getTodayDailyRecord();
+  }
+
+  function formatTimeUntilTomorrow() {
+    const apiInfo = window.DUELO.Api && window.DUELO.Api.getServerDateInfo();
+    let diffSec = 0;
+    if (apiInfo && apiInfo.nextDailyAtMs) {
+      diffSec = Math.max(0, Math.floor((apiInfo.nextDailyAtMs - Date.now()) / 1000));
+    } else {
+      const now = new Date();
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      diffSec = Math.max(0, Math.floor((tomorrow.getTime() - now.getTime()) / 1000));
+    }
+    const h = String(Math.floor(diffSec / 3600)).padStart(2, "0");
+    const m = String(Math.floor((diffSec % 3600) / 60)).padStart(2, "0");
+    const s = String(diffSec % 60).padStart(2, "0");
+    return h + "h " + m + "m " + s + "s";
+  }
+
+  function stopDailyCountdownTimer() {
+    if (dailyCountdownTimer) {
+      clearInterval(dailyCountdownTimer);
+      dailyCountdownTimer = null;
+    }
+  }
+
+  function startDailyCountdownTimer() {
+    stopDailyCountdownTimer();
+    const el = qs("#daily-countdown-text");
+    if (!el) return;
+    el.textContent = formatTimeUntilTomorrow();
+    dailyCountdownTimer = setInterval(function () {
+      const target = qs("#daily-countdown-text");
+      if (!target || gameState.mode !== "daily") {
+        stopDailyCountdownTimer();
+        return;
+      }
+      target.textContent = formatTimeUntilTomorrow();
+    }, 1000);
+  }
+
+  function syncModeControls() {
+    const isDaily = gameState.mode === "daily";
+    const modeSelect = qs("#select-game-mode");
+    const catSelect = qs("#select-category-filter");
+    const btnNew = qs("#btn-new-secret");
+    const btnHint = qs("#btn-get-hint");
+    const btnReveal = qs("#btn-reveal-secret");
+
+    if (modeSelect && modeSelect.value !== gameState.mode) {
+      modeSelect.value = gameState.mode;
+    }
+
+    // Na Palavra do Dia não existe filtro de tema: a palavra é a mesma para todos
+    if (catSelect) {
+      catSelect.classList.toggle("hidden", isDaily);
+      catSelect.disabled = isDaily;
+    }
+
+    // Na Palavra do Dia não há sorteio de "Nova Palavra"
+    if (btnNew) {
+      btnNew.classList.toggle("hidden", isDaily);
+    }
+
+    const hideActionButtons = gameState.isSolved || isDailyLocked();
+    if (btnHint) btnHint.classList.toggle("hidden", hideActionButtons);
+    if (btnReveal) btnReveal.classList.toggle("hidden", hideActionButtons);
+  }
+
   function switchMainTab(tabName) {
     const isDuel = tabName === "duel";
     const soloView = qs("#tab-solo-view");
@@ -54,11 +211,12 @@ window.DUELO = window.DUELO || {};
   window.DUELO.SwitchTab = switchMainTab;
 
   function init() {
+    gameState.mode = loadPreferredMode();
     loadStats();
     window.DUELO.Radar.init(qs("#semantic-radar-canvas"));
     bindEvents();
     renderSuggestionsChips();
-    startNewMatch(); // Sempre sorteia uma palavra secreta aleatoria diferente!
+    startNewMatch(); // Sempre sorteia uma palavra secreta aleatoria ou carrega o estado diario
     if (window.DUELO.DuelMode && window.DUELO.DuelMode.init) {
       window.DUELO.DuelMode.init();
     }
@@ -90,7 +248,13 @@ window.DUELO = window.DUELO || {};
     const roundEl = qs("#stat-current-round");
     if (wonEl) wonEl.textContent = stats.gamesWon;
     if (bestEl) bestEl.textContent = stats.bestRounds !== null ? stats.bestRounds + " rodadas" : "--";
-    if (roundEl) roundEl.textContent = "Rodada " + gameState.round;
+    if (roundEl) {
+      if (gameState.mode === "daily" && gameState.isSolved) {
+        roundEl.textContent = gameState.wasRevealed ? "Revelada" : "Concluído";
+      } else {
+        roundEl.textContent = "Rodada " + gameState.round;
+      }
+    }
   }
 
   function renderSuggestionsChips() {
@@ -174,23 +338,117 @@ window.DUELO = window.DUELO || {};
     return picked;
   }
 
-  function startNewMatch(forcedSecretWord) {
-    let chosen = forcedSecretWord;
-    if (!chosen) {
-      if (gameState.mode === "daily") {
-        chosen = window.DUELO.Engine.getDailySecretWord();
-      } else {
-        chosen = pickRandomSecretWord(gameState.categoryFilter);
+  function restoreLockedDailyMatch(record) {
+    stopDailyCountdownTimer();
+    gameState.gameCount += 1;
+    gameState.secretWord = record.secretWord;
+    gameState.matchToken = null;
+    gameState.revealedMeta = record.hintText ? { hint: record.hintText, displayWord: record.displayWord } : null;
+    gameState.round = record.rounds || 1;
+    gameState.isSolved = true;
+    gameState.wasRevealed = !!record.revealed;
+    gameState.isCustomSecret = false;
+    gameState.champion = record.champion || null;
+    gameState.lastDuel = null;
+    gameState.history = Array.isArray(record.history) ? record.history : [];
+    gameState.testedWords = Array.isArray(record.testedWords) ? record.testedWords : [];
+    gameState.hintsUsed = record.hintsUsed || 0;
+
+    window.DUELO.Radar.reset();
+    gameState.testedWords.forEach(function (tw) {
+      window.DUELO.Radar.addOrUpdateWord(tw, !!(gameState.champion && gameState.champion.word === tw.word));
+    });
+    window.DUELO.Radar.setSolved(record.displayWord);
+
+    const in1 = qs("#input-round1-word1");
+    const in2 = qs("#input-round1-word2");
+    const inNext = qs("#input-next-challenger");
+    if (in1) in1.value = "";
+    if (in2) in2.value = "";
+    if (inNext) inNext.value = "";
+
+    hideMissingHighlight();
+    hideInlineAlert();
+
+    const hintBox = qs("#hint-display-box");
+    if (hintBox) {
+      hintBox.classList.add("hidden");
+      hintBox.innerHTML = "";
+    }
+
+    renderVictoryState(
+      { word: record.secretWord, displayWord: record.displayWord },
+      gameState.round,
+      gameState.wasRevealed,
+      record.chain
+    );
+    updateUI();
+  }
+
+  function applyLocalSecretFallback(customSpec) {
+    if (customSpec && typeof customSpec === "object") {
+      const resolved = window.DUELO.Engine.resolveWord(customSpec.word);
+      const cleanWord = resolved ? resolved.canonical : customSpec.word.toLowerCase();
+      const clusterKey = customSpec.cluster || "transporte_rodas";
+      const sampleKey = Object.keys(window.DUELO_DATA.WORDS).find(function (k) {
+        return window.DUELO_DATA.WORDS[k].cluster === clusterKey;
+      }) || "carro";
+      const sample = window.DUELO_DATA.WORDS[sampleKey];
+      const customLinks = customSpec.links
+        ? customSpec.links.split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean)
+        : sample.links.slice(0, 6);
+
+      window.DUELO_DATA.WORDS[cleanWord] = {
+        word: cleanWord,
+        category: sample.category,
+        cluster: clusterKey,
+        sub: cleanWord,
+        vec: sample.vec.slice(),
+        links: customLinks,
+        hint: customSpec.hint || ("Palavra secreta personalizada na categoria " + sample.category + ".")
+      };
+      return cleanWord;
+    }
+
+    if (typeof customSpec === "string" && customSpec) {
+      const r = window.DUELO.Engine.resolveWord(customSpec);
+      return r ? r.canonical : customSpec;
+    }
+
+    if (gameState.mode === "daily") {
+      return window.DUELO.Engine.getDailySecretWord();
+    }
+    return pickRandomSecretWord(gameState.categoryFilter);
+  }
+
+  function startNewMatch(customSpec) {
+    stopDailyCountdownTimer();
+    const mySerial = ++startMatchSerial;
+
+    if (customSpec) {
+      gameState.mode = "practice";
+      gameState.isCustomSecret = true;
+      savePreferredMode("practice");
+    } else {
+      gameState.isCustomSecret = false;
+    }
+
+    if (gameState.mode === "daily" && !customSpec) {
+      const dailyRec = getTodayDailyRecord();
+      if (dailyRec) {
+        pendingStartPromise = null;
+        restoreLockedDailyMatch(dailyRec);
+        return;
       }
     }
 
-    const resolved = window.DUELO.Engine.resolveWord(chosen);
-    const canonicalSecret = resolved ? resolved.canonical : "roda";
-
     gameState.gameCount += 1;
-    gameState.secretWord = canonicalSecret;
+    gameState.secretWord = "";
+    gameState.matchToken = null;
+    gameState.revealedMeta = null;
     gameState.round = 1;
     gameState.isSolved = false;
+    gameState.wasRevealed = false;
     gameState.champion = null;
     gameState.lastDuel = null;
     gameState.history = [];
@@ -217,6 +475,45 @@ window.DUELO = window.DUELO || {};
 
     const victoryBanner = qs("#victory-banner");
     if (victoryBanner) victoryBanner.classList.add("hidden");
+
+    const Api = window.DUELO.Api;
+    if (Api && !Api.isOfflineFallback()) {
+      const startPayload = customSpec && typeof customSpec === "object"
+        ? { mode: "custom", customSecret: customSpec }
+        : {
+            mode: gameState.mode,
+            categoryFilter: gameState.mode === "daily" ? "all" : gameState.categoryFilter,
+            excludeWords: getRecentSecrets()
+          };
+
+      pendingStartPromise = Api.startMatch(startPayload)
+        .then(function (data) {
+          if (mySerial !== startMatchSerial) return;
+          if (!data) {
+            // Fallback offline (localhost sem backend ou file://)
+            const chosen = applyLocalSecretFallback(customSpec);
+            const resolved = window.DUELO.Engine.resolveWord(chosen);
+            gameState.secretWord = resolved ? resolved.canonical : chosen;
+            return;
+          }
+          gameState.matchToken = data.matchToken;
+          if (gameState.mode === "daily" && !customSpec) {
+            const serverRec = getTodayDailyRecord();
+            if (serverRec) {
+              restoreLockedDailyMatch(serverRec);
+            }
+          }
+        })
+        .catch(function (err) {
+          if (mySerial !== startMatchSerial) return;
+          showInlineAlert((err && err.message) || "Erro ao iniciar partida no servidor.");
+        });
+    } else {
+      pendingStartPromise = null;
+      const chosen = applyLocalSecretFallback(customSpec);
+      const resolved = window.DUELO.Engine.resolveWord(chosen);
+      gameState.secretWord = resolved ? resolved.canonical : "roda";
+    }
 
     updateUI();
     if (in1) in1.focus();
@@ -253,12 +550,37 @@ window.DUELO = window.DUELO || {};
     }
   }
 
+  async function evaluateGuessList(wordsArr) {
+    if (pendingStartPromise) {
+      await pendingStartPromise;
+    }
+
+    const Api = window.DUELO.Api;
+    if (gameState.matchToken && Api) {
+      const res = await Api.evaluateWords(gameState.matchToken, wordsArr);
+      if (res && res.revealedMeta) {
+        gameState.revealedMeta = res.revealedMeta;
+      }
+      return res ? res.results : [];
+    }
+
+    if (Api && !Api.isOfflineFallback()) {
+      throw new Error("Partida aguardando resposta do servidor.");
+    }
+
+    return await Promise.all(
+      wordsArr.map(function (w) {
+        return window.DUELO.Engine.evaluateWordAsync(w, gameState.secretWord);
+      })
+    );
+  }
+
   // ==========================================================================
   // RODADA 1: PROCESSAMENTO DE 2 PALAVRAS
   // ==========================================================================
   async function handleRound1Submit(ev) {
     if (ev) ev.preventDefault();
-    if (gameState.isSolved || isEvaluating) return;
+    if (gameState.isSolved || isEvaluating || isDailyLocked()) return;
 
     const in1 = qs("#input-round1-word1");
     const in2 = qs("#input-round1-word2");
@@ -298,14 +620,13 @@ window.DUELO = window.DUELO || {};
     try {
       const r1Sync = window.DUELO.Engine.resolveWord(w1Raw, false);
       const r2Sync = window.DUELO.Engine.resolveWord(w2Raw, false);
-      if ((r1Sync && (!r1Sync.known || r1Sync.source === "morpheme")) || (r2Sync && (!r2Sync.known || r2Sync.source === "morpheme"))) {
-        setBusyState(true, "Consultando dicionário...");
+      if (gameState.matchToken || (r1Sync && (!r1Sync.known || r1Sync.source === "morpheme")) || (r2Sync && (!r2Sync.known || r2Sync.source === "morpheme"))) {
+        setBusyState(true, "Consultando servidor...");
       }
 
-      const [eval1, eval2] = await Promise.all([
-        window.DUELO.Engine.evaluateWordAsync(w1Raw, gameState.secretWord),
-        window.DUELO.Engine.evaluateWordAsync(w2Raw, gameState.secretWord)
-      ]);
+      const evalResults = await evaluateGuessList([w1Raw, w2Raw]);
+      const eval1 = evalResults && evalResults[0];
+      const eval2 = evalResults && evalResults[1];
 
       if (!eval1 || !eval2) {
         showInlineAlert("Por favor, digite palavras válidas em português.");
@@ -320,7 +641,7 @@ window.DUELO = window.DUELO || {};
 
       processDuel(eval1, eval2);
     } catch (err) {
-      showInlineAlert("Não foi possível avaliar agora. Tente novamente em instantes.");
+      showInlineAlert((err && err.message) || "Não foi possível avaliar agora. Tente novamente em instantes.");
     } finally {
       setBusyState(false);
     }
@@ -331,7 +652,7 @@ window.DUELO = window.DUELO || {};
   // ==========================================================================
   async function handleNextRoundSubmit(ev) {
     if (ev) ev.preventDefault();
-    if (gameState.isSolved || !gameState.champion || isEvaluating) return;
+    if (gameState.isSolved || !gameState.champion || isEvaluating || isDailyLocked()) return;
 
     const inputEl = qs("#input-next-challenger");
     const challengerRaw = (inputEl.value || "").trim();
@@ -347,11 +668,12 @@ window.DUELO = window.DUELO || {};
 
     try {
       const rSync = window.DUELO.Engine.resolveWord(challengerRaw, false);
-      if (rSync && (!rSync.known || rSync.source === "morpheme")) {
-        setBusyState(true, "Consultando dicionário...");
+      if (gameState.matchToken || (rSync && (!rSync.known || rSync.source === "morpheme"))) {
+        setBusyState(true, "Consultando servidor...");
       }
 
-      const evalChallenger = await window.DUELO.Engine.evaluateWordAsync(challengerRaw, gameState.secretWord);
+      const evalResults = await evaluateGuessList([challengerRaw]);
+      const evalChallenger = evalResults && evalResults[0];
       if (!evalChallenger) {
         showInlineAlert("Digite uma palavra válida da língua portuguesa.");
         return;
@@ -376,7 +698,7 @@ window.DUELO = window.DUELO || {};
       processDuel(gameState.champion, evalChallenger);
       inputEl.focus();
     } catch (err) {
-      showInlineAlert("Não foi possível comparar agora. Tente novamente.");
+      showInlineAlert((err && err.message) || "Não foi possível comparar agora. Tente novamente.");
     } finally {
       setBusyState(false);
     }
@@ -417,15 +739,22 @@ window.DUELO = window.DUELO || {};
     if (winner.isExact) {
       gameState.isSolved = true;
       window.DUELO.Radar.setSolved(winner.displayWord);
-      window.DUELO.Audio.victory();
 
-      stats.gamesWon += 1;
-      stats.totalRoundsPlayed += currentRound;
-      if (stats.bestRounds === null || currentRound < stats.bestRounds) {
-        stats.bestRounds = currentRound;
+      if (!gameState.wasRevealed) {
+        window.DUELO.Audio.victory();
+        stats.gamesWon += 1;
+        stats.totalRoundsPlayed += currentRound;
+        if (stats.bestRounds === null || currentRound < stats.bestRounds) {
+          stats.bestRounds = currentRound;
+        }
+        saveStats();
       }
-      saveStats();
-      renderVictoryState(winner, currentRound);
+
+      if (gameState.mode === "daily" && !gameState.isCustomSecret) {
+        saveTodayDailyRecord(winner, currentRound, gameState.wasRevealed);
+      }
+
+      renderVictoryState(winner, currentRound, gameState.wasRevealed);
     } else {
       gameState.round += 1;
       if (gameState.lastDuel.changedLeader) {
@@ -466,19 +795,28 @@ window.DUELO = window.DUELO || {};
   }
 
   function updateUI() {
+    syncModeControls();
     renderStatsBar();
     renderSuggestionsChips();
 
     const round1Panel = qs("#panel-round-1");
     const roundNextPanel = qs("#panel-round-next");
+    const suggestionsBar = qs("#solo-suggestions-bar");
 
-    if (gameState.round === 1 && !gameState.champion) {
-      round1Panel.classList.remove("hidden");
-      roundNextPanel.classList.add("hidden");
+    if (gameState.isSolved || isDailyLocked()) {
+      if (round1Panel) round1Panel.classList.add("hidden");
+      if (roundNextPanel) roundNextPanel.classList.add("hidden");
+      if (suggestionsBar) suggestionsBar.classList.add("hidden");
     } else {
-      round1Panel.classList.add("hidden");
-      roundNextPanel.classList.remove("hidden");
-      renderChampionSlot();
+      if (suggestionsBar) suggestionsBar.classList.remove("hidden");
+      if (gameState.round === 1 && !gameState.champion) {
+        round1Panel.classList.remove("hidden");
+        roundNextPanel.classList.add("hidden");
+      } else {
+        round1Panel.classList.add("hidden");
+        roundNextPanel.classList.remove("hidden");
+        renderChampionSlot();
+      }
     }
 
     renderLastDuelVerdict();
@@ -560,42 +898,76 @@ window.DUELO = window.DUELO || {};
       '</div>';
   }
 
-  function renderVictoryState(winner, totalRounds) {
+  function renderVictoryState(winner, totalRounds, wasRevealed, customChain) {
     const banner = qs("#victory-banner");
     if (!banner) return;
-    const secretEntry = window.DUELO_DATA.WORDS[gameState.secretWord];
-    const hintText = secretEntry ? secretEntry.hint : "";
+    const secretEntry = gameState.secretWord ? window.DUELO_DATA.WORDS[gameState.secretWord] : null;
+    const hintText = (gameState.revealedMeta && gameState.revealedMeta.hint) || (secretEntry ? secretEntry.hint : "");
+    const isDaily = gameState.mode === "daily" && !gameState.isCustomSecret;
 
-    const chain = [];
-    for (let i = gameState.history.length - 1; i >= 0; i--) {
-      const w = gameState.history[i].winner.displayWord;
-      if (chain.length === 0 || chain[chain.length - 1] !== w) {
-        chain.push(w);
-      }
+    const chain = Array.isArray(customChain) && customChain.length > 0
+      ? customChain
+      : buildWinChain(gameState.history);
+
+    let kicker = "Palavra Descoberta";
+    if (isDaily) {
+      kicker = wasRevealed ? "Palavra do Dia Revelada" : "Palavra do Dia Concluída";
+    } else if (wasRevealed) {
+      kicker = "Palavra Revelada";
     }
+
+    const subtitle = wasRevealed
+      ? (isDaily
+          ? "Você revelou a Palavra do Dia de hoje. Este computador não pode tentar novamente até amanhã."
+          : "Você revelou a resposta após " + totalRounds + " " + (totalRounds === 1 ? "rodada" : "rodadas") + ".")
+      : (isDaily
+          ? "Você descobriu a Palavra do Dia de hoje em " + totalRounds + " " + (totalRounds === 1 ? "rodada" : "rodadas") + "! Uma nova palavra libera amanhã."
+          : "Você acertou em " + totalRounds + " " + (totalRounds === 1 ? "rodada" : "rodadas") + ".");
+
+    const dailyNoticeHtml = isDaily
+      ? '<p class="text-xs text-zinc-300 mt-2">Próxima Palavra do Dia em <strong id="daily-countdown-text" class="font-mono text-amber-300">' + formatTimeUntilTomorrow() + '</strong>.</p>'
+      : '';
+
+    const shareButtonHtml = !wasRevealed
+      ? '<button type="button" id="btn-share-solo-result" class="btn-secondary">Compartilhar Resultado</button>'
+      : '';
+
+    const primaryActionHtml = isDaily
+      ? '<button type="button" id="btn-victory-next" class="btn-primary">Treinar no Modo Livre</button>'
+      : '<button type="button" id="btn-victory-next" class="btn-primary">Jogar Próxima Palavra</button>';
+
+    const chainHtml = chain.length > 0
+      ? '<div class="evolution-chain-box mt-3">' +
+          '<span class="text-xs uppercase tracking-wider text-zinc-400">Caminho das vencedoras:</span>' +
+          '<p class="font-mono text-sm text-emerald-400 mt-1">' + chain.join(" -> ") + '</p>' +
+        '</div>'
+      : '';
 
     banner.classList.remove("hidden");
     banner.innerHTML =
       '<div class="victory-celebration-card">' +
-        '<span class="editorial-kicker">Palavra Descoberta</span>' +
+        '<span class="editorial-kicker">' + kicker + '</span>' +
         '<h2 class="victory-word-heading">' + winner.displayWord + '</h2>' +
         '<p class="text-sm text-zinc-300 mt-1">' + hintText + '</p>' +
-        '<p class="text-xs font-mono text-amber-300 mt-2">Você acertou em ' + totalRounds + ' ' + (totalRounds === 1 ? 'rodada' : 'rodadas') + '.</p>' +
-        '<div class="evolution-chain-box mt-3">' +
-          '<span class="text-xs uppercase tracking-wider text-zinc-400">Caminho das vencedoras:</span>' +
-          '<p class="font-mono text-sm text-emerald-400 mt-1">' + chain.join(" -> ") + '</p>' +
-        '</div>' +
+        '<p class="text-xs font-mono text-amber-300 mt-2">' + subtitle + '</p>' +
+        dailyNoticeHtml +
+        chainHtml +
         '<div class="mt-4 flex flex-wrap justify-center gap-3">' +
-          '<button type="button" id="btn-share-solo-result" class="btn-secondary">Compartilhar Resultado</button>' +
-          '<button type="button" id="btn-victory-next" class="btn-primary">Jogar Próxima Palavra</button>' +
+          shareButtonHtml +
+          primaryActionHtml +
         '</div>' +
       '</div>';
+
+    if (isDaily) {
+      startDailyCountdownTimer();
+    }
 
     const shareBtn = qs("#btn-share-solo-result");
     if (shareBtn) {
       shareBtn.addEventListener("click", function () {
         const gameUrl = window.location.origin + window.location.pathname;
-        const shareText = "Duelo Semântico: acertei a palavra em " + totalRounds + (totalRounds === 1 ? " rodada" : " rodadas") + "! Jogue também: " + gameUrl;
+        const sharePrefix = isDaily ? "Duelo Semântico (Palavra do Dia): " : "Duelo Semântico: ";
+        const shareText = sharePrefix + "acertei a palavra em " + totalRounds + (totalRounds === 1 ? " rodada" : " rodadas") + "! Jogue também: " + gameUrl;
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(shareText).then(function () {
             shareBtn.textContent = "Copiado para o WhatsApp!";
@@ -608,6 +980,12 @@ window.DUELO = window.DUELO || {};
     const nextBtn = qs("#btn-victory-next");
     if (nextBtn) {
       nextBtn.addEventListener("click", function () {
+        if (isDaily) {
+          gameState.mode = "practice";
+          savePreferredMode("practice");
+          const modeSelect = qs("#select-game-mode");
+          if (modeSelect) modeSelect.value = "practice";
+        }
         startNewMatch();
       });
     }
@@ -668,45 +1046,93 @@ window.DUELO = window.DUELO || {};
     }).join("");
   }
 
-  function handleRequestHint() {
-    if (gameState.isSolved) return;
-    window.DUELO.Audio.hint();
-    gameState.hintsUsed += 1;
-
-    const secretEntry = window.DUELO_DATA.WORDS[gameState.secretWord] || {
-      category: "Cotidiano",
-      hint: "Palavra da lingua portuguesa.",
-      links: []
-    };
-
+  async function handleRequestHint() {
+    if (gameState.isSolved || isDailyLocked() || isEvaluating) return;
     const hintBox = qs("#hint-display-box");
     if (!hintBox) return;
-    hintBox.classList.remove("hidden");
 
     const champScore = gameState.champion ? gameState.champion.score : 15;
-    const bridge = window.DUELO.Engine.getBridgeHint(gameState.secretWord, champScore);
+    const nextLevel = gameState.hintsUsed + 1;
 
-    let html = '<div class="space-y-1">';
-    html += '<p class="text-xs font-semibold text-amber-300">DICA 1 (Tema & Tamanho): Categoria "' + secretEntry.category + '" | Possui ' + gameState.secretWord.length + ' letras.</p>';
+    try {
+      if (pendingStartPromise) await pendingStartPromise;
 
-    if (gameState.hintsUsed >= 2 && bridge) {
-      html += '<p class="text-xs text-sky-300">DICA 2 (Palavra-Ponte Mais Proxima): Experimente testar <strong>' + bridge.displayWord + '</strong> (' + bridge.score.toFixed(1) + '%).</p>';
+      let tier1 = "";
+      let bridge = null;
+      let tier3 = null;
+
+      const Api = window.DUELO.Api;
+      if (gameState.matchToken && Api) {
+        const res = await Api.requestHint(gameState.matchToken, nextLevel, champScore);
+        tier1 = res.tier1;
+        bridge = res.bridge;
+        tier3 = res.tier3;
+      } else if (Api && !Api.isOfflineFallback()) {
+        showInlineAlert("Aguardando conexão com o servidor.");
+        return;
+      } else {
+        const secretEntry = window.DUELO_DATA.WORDS[gameState.secretWord] || {
+          category: "Cotidiano",
+          hint: "Palavra da lingua portuguesa.",
+          links: []
+        };
+        tier1 = 'DICA 1 (Tema & Tamanho): Categoria "' + secretEntry.category + '" | Possui ' + gameState.secretWord.length + ' letras.';
+        bridge = nextLevel >= 2 ? window.DUELO.Engine.getBridgeHint(gameState.secretWord, champScore) : null;
+        tier3 = nextLevel >= 3
+          ? 'DICA 3 (Definicao & Inicial): Comeca com a letra "' + gameState.secretWord.charAt(0).toUpperCase() + '" — ' + secretEntry.hint
+          : null;
+      }
+
+      window.DUELO.Audio.hint();
+      gameState.hintsUsed = nextLevel;
+      hintBox.classList.remove("hidden");
+
+      let html = '<div class="space-y-1">';
+      html += '<p class="text-xs font-semibold text-amber-300">' + tier1 + '</p>';
+      if (gameState.hintsUsed >= 2 && bridge) {
+        html += '<p class="text-xs text-sky-300">DICA 2 (Palavra-Ponte Mais Proxima): Experimente testar <strong>' + bridge.displayWord + '</strong> (' + bridge.score.toFixed(1) + '%).</p>';
+      }
+      if (gameState.hintsUsed >= 3 && tier3) {
+        html += '<p class="text-xs text-emerald-400">' + tier3 + '</p>';
+      }
+      html += '</div>';
+
+      hintBox.innerHTML = html;
+    } catch (err) {
+      showInlineAlert((err && err.message) || "Não foi possível carregar a dica agora.");
     }
-    if (gameState.hintsUsed >= 3) {
-      html += '<p class="text-xs text-emerald-400">DICA 3 (Definicao & Inicial): Comeca com a letra <strong>"' + gameState.secretWord.charAt(0).toUpperCase() + '"</strong> — ' + secretEntry.hint + '</p>';
-    }
-    html += '</div>';
-
-    hintBox.innerHTML = html;
   }
 
-  function handleGiveUpReveal() {
-    if (gameState.isSolved) return;
-    const evalExact = window.DUELO.Engine.calculateProximity(gameState.secretWord, gameState.secretWord);
-    if (!evalExact) return;
+  async function handleGiveUpReveal() {
+    if (gameState.isSolved || isDailyLocked() || isEvaluating) return;
 
-    const left = gameState.champion || evalExact;
-    processDuel(left, evalExact);
+    try {
+      if (pendingStartPromise) await pendingStartPromise;
+      let evalExact = null;
+
+      const Api = window.DUELO.Api;
+      if (gameState.matchToken && Api) {
+        const res = await Api.revealSecret(gameState.matchToken);
+        evalExact = res ? res.evalExact : null;
+        if (res && res.revealedMeta) {
+          gameState.revealedMeta = res.revealedMeta;
+        }
+      } else if (Api && !Api.isOfflineFallback()) {
+        showInlineAlert("Aguardando conexão com o servidor.");
+        return;
+      } else {
+        evalExact = window.DUELO.Engine.calculateProximity(gameState.secretWord, gameState.secretWord);
+      }
+
+      if (!evalExact) return;
+
+      gameState.wasRevealed = true;
+      window.DUELO.Audio.hint();
+      const left = gameState.champion || evalExact;
+      processDuel(left, evalExact);
+    } catch (err) {
+      showInlineAlert((err && err.message) || "Não foi possível revelar a palavra agora.");
+    }
   }
 
   function showInlineAlert(msg) {
@@ -784,6 +1210,10 @@ window.DUELO = window.DUELO || {};
     if (catSelect) {
       catSelect.addEventListener("change", function () {
         gameState.categoryFilter = catSelect.value;
+        if (gameState.mode === "daily") {
+          gameState.mode = "practice";
+          savePreferredMode("practice");
+        }
         startNewMatch();
       });
     }
@@ -792,7 +1222,8 @@ window.DUELO = window.DUELO || {};
     const modeSelect = qs("#select-game-mode");
     if (modeSelect) {
       modeSelect.addEventListener("change", function () {
-        gameState.mode = modeSelect.value;
+        gameState.mode = modeSelect.value === "daily" ? "daily" : "practice";
+        savePreferredMode(gameState.mode);
         startNewMatch();
       });
     }
@@ -832,31 +1263,15 @@ window.DUELO = window.DUELO || {};
         const clusterKey = qs("#select-custom-cluster").value || "transporte_rodas";
 
         if (!rawWord) return;
-        const resolved = window.DUELO.Engine.resolveWord(rawWord);
-        const cleanWord = resolved ? resolved.canonical : rawWord;
-
-        const sampleKey = Object.keys(window.DUELO_DATA.WORDS).find(function (k) {
-          return window.DUELO_DATA.WORDS[k].cluster === clusterKey;
-        }) || "carro";
-        const sample = window.DUELO_DATA.WORDS[sampleKey];
-
-        const customLinks = rawLinks
-          ? rawLinks.split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean)
-          : sample.links.slice(0, 6);
-
-        window.DUELO_DATA.WORDS[cleanWord] = {
-          word: cleanWord,
-          category: sample.category,
-          cluster: clusterKey,
-          sub: cleanWord,
-          vec: sample.vec.slice(),
-          links: customLinks,
-          hint: rawHint || ("Palavra secreta personalizada na categoria " + sample.category + ".")
-        };
 
         modalCustom.classList.add("hidden");
         formCustom.reset();
-        startNewMatch(cleanWord);
+        startNewMatch({
+          word: rawWord,
+          hint: rawHint,
+          links: rawLinks,
+          cluster: clusterKey
+        });
       });
     }
   }
