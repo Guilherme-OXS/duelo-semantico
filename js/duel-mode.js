@@ -24,6 +24,8 @@ window.DUELO.DuelMode = (function () {
   let searchTimer = null;
   let searchCountdown = 10;
   let turnTimer = null;
+  let msgSeq = 0;
+  let processedMsgIds = {};
 
   let state = {
     phase: "lobby", // "lobby" | "searching" | "waiting_room" | "playing" | "finished"
@@ -155,10 +157,11 @@ window.DUELO.DuelMode = (function () {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function getMyNickname() {
+  function getMyNickname(fallbackRole) {
     const inp = qs("#duel-player-name");
     const val = inp ? inp.value.trim() : "";
-    return val || "Jogador";
+    if (val) return val;
+    return fallbackRole === "guest" ? "Visitante" : "Anfitrião";
   }
 
   // ==========================================================================
@@ -176,32 +179,49 @@ window.DUELO.DuelMode = (function () {
 
   function sendToOpponent(payload) {
     if (state.isBot) return;
+    const envelope = Object.assign({
+      _senderRole: state.role,
+      _uid: state.role + "_" + (++msgSeq) + "_" + Date.now()
+    }, payload);
+
+    // Se o canal WebRTC estiver aberto, usa somente ele para evitar envio duplicado
     if (conn && conn.open) {
-      try { conn.send(payload); } catch (e) {}
+      try { conn.send(envelope); } catch (e) {}
+      return;
     }
     if (bc) {
-      try { bc.postMessage(Object.assign({ _senderRole: state.role }, payload)); } catch (e) {}
+      try { bc.postMessage(envelope); } catch (e) {}
     }
   }
 
   function handleIncomingMessage(msg, transport) {
     if (!msg || !msg.type) return;
     if (transport === "bc" && msg._senderRole === state.role) return;
+    if (msg._uid) {
+      if (processedMsgIds[msg._uid]) return;
+      processedMsgIds[msg._uid] = true;
+    }
 
     if (msg.type === "hello_guest" && state.role === "host") {
+      // Se os dois usarem o mesmo nome padrao, diferencia automaticamente
+      if (msg.name && msg.name === state.myName) {
+        state.oppName = msg.name + " (2)";
+      } else {
+        state.oppName = msg.name || "Desafiante";
+      }
       // Guest entrou na sala! Para o cronometro de busca e inicia partida
       if (searchTimer) {
         clearInterval(searchTimer);
         searchTimer = null;
       }
       state.isBot = false;
-      state.oppName = msg.name || "Desafiante";
       state.phase = "playing";
       resetMatchData(true);
 
       sendToOpponent({
         type: "match_start",
         hostName: state.myName,
+        guestName: state.oppName,
         roomCode: state.roomCode,
         turnDuration: state.turnDuration
       });
@@ -214,7 +234,8 @@ window.DUELO.DuelMode = (function () {
         searchTimer = null;
       }
       state.isBot = false;
-      state.oppName = msg.hostName || "Anfitriao";
+      state.oppName = msg.hostName || "Anfitrião";
+      if (msg.guestName) state.myName = msg.guestName;
       state.turnDuration = typeof msg.turnDuration === "number" ? msg.turnDuration : 30;
       state.phase = "playing";
       resetMatchData(false);
@@ -256,6 +277,7 @@ window.DUELO.DuelMode = (function () {
   }
 
   function resetMatchData(isHost) {
+    processedMsgIds = {};
     state.round = 1;
     state.champion = null;
     state.myPendingWord = null;
@@ -313,7 +335,7 @@ window.DUELO.DuelMode = (function () {
     }
 
     cleanupConnections();
-    state.myName = getMyNickname();
+    state.myName = getMyNickname("guest");
     state.role = "guest";
     state.isBot = false;
     state.roomCode = code;
@@ -635,10 +657,11 @@ window.DUELO.DuelMode = (function () {
     if (!myEval || !oppEval) return;
     stopTurnTimer();
 
-    const hostWonRound = myEval.score >= oppEval.score;
-    const roundBest = hostWonRound ? myEval : oppEval;
-    const roundBestOwner = hostWonRound ? "host" : "guest";
-    const roundBestName = hostWonRound ? state.myName : state.oppName;
+    const isTie = Math.abs(myEval.score - oppEval.score) < 0.05;
+    const hostWonRound = !isTie && myEval.score > oppEval.score;
+    const roundBest = (isTie || hostWonRound) ? myEval : oppEval;
+    const roundBestOwner = isTie ? "tie" : (hostWonRound ? "host" : "guest");
+    const roundBestName = isTie ? "Empate (Ambos)" : (hostWonRound ? state.myName : state.oppName);
 
     if (!myEval.isTimeout && state.usedWords.indexOf(myEval.word) === -1) state.usedWords.push(myEval.word);
     if (!oppEval.isTimeout && state.usedWords.indexOf(oppEval.word) === -1) state.usedWords.push(oppEval.word);
@@ -646,7 +669,7 @@ window.DUELO.DuelMode = (function () {
     let newChampion = state.champion;
     let throneChanged = false;
 
-    if (!roundBest.isTimeout && (!newChampion || roundBest.score >= newChampion.score)) {
+    if (!roundBest.isTimeout && (!newChampion || roundBest.score > newChampion.score || (!isTie && roundBest.score === newChampion.score))) {
       throneChanged = !newChampion || newChampion.word !== roundBest.word;
       newChampion = {
         word: roundBest.word,
@@ -660,12 +683,18 @@ window.DUELO.DuelMode = (function () {
       };
     }
 
-    if (hostWonRound && !myEval.isTimeout) state.scores.host += 1;
-    else if (!hostWonRound && !oppEval.isTimeout) state.scores.guest += 1;
+    // Em caso de empate na rodada, nenhum dos dois soma ponto de vantagem
+    if (!isTie) {
+      if (hostWonRound && !myEval.isTimeout) state.scores.host += 1;
+      else if (!hostWonRound && !oppEval.isTimeout) state.scores.guest += 1;
+    }
 
     let finished = false;
     let winnerRole = null;
-    if (myEval.isExact || oppEval.isExact) {
+    if (myEval.isExact && oppEval.isExact) {
+      finished = true;
+      winnerRole = "tie";
+    } else if (myEval.isExact || oppEval.isExact) {
       finished = true;
       winnerRole = myEval.isExact ? "host" : "guest";
     }
@@ -703,6 +732,12 @@ window.DUELO.DuelMode = (function () {
   }
 
   function applyRoundResultState(payload, isHostPerspective) {
+    // Garante que a mesma rodada nunca seja duplicada no historico do visitante
+    const alreadyRecorded = state.history.some(function (h) {
+      return h.round === payload.roundEntry.round;
+    });
+    if (alreadyRecorded) return;
+
     state.champion = payload.champion;
     state.scores = payload.scores;
     state.usedWords = payload.usedWords || [];
@@ -717,13 +752,13 @@ window.DUELO.DuelMode = (function () {
       state.phase = "finished";
       state.winnerRole = payload.winnerRole;
       state.revealedSecret = payload.revealedSecret;
-      if (state.winnerRole === state.role) {
+      if (state.winnerRole === state.role || state.winnerRole === "tie") {
         window.DUELO.Audio.victory();
       } else {
         window.DUELO.Audio.championKept();
       }
     } else {
-      state.round += 1;
+      state.round = payload.round + 1;
       if (payload.throneChanged) window.DUELO.Audio.newChampion();
       else window.DUELO.Audio.championKept();
       startTurnTimer();
@@ -782,7 +817,7 @@ window.DUELO.DuelMode = (function () {
     const myScore = state.role === "host" ? state.scores.host : state.scores.guest;
     const oppScore = state.role === "host" ? state.scores.guest : state.scores.host;
 
-    qs("#duel-my-label").textContent = state.myName + " (Voce)";
+    qs("#duel-my-label").textContent = state.myName + " (Você)";
     qs("#duel-opp-label").textContent = state.oppName;
     qs("#duel-my-score").textContent = myScore + " pts";
     qs("#duel-opp-score").textContent = oppScore + " pts";
@@ -808,10 +843,10 @@ window.DUELO.DuelMode = (function () {
     }
     if (oppStatus) {
       if (state.oppReady) {
-        oppStatus.textContent = state.oppName + " ja enviou a palavra!";
+        oppStatus.textContent = state.oppName + " já enviou a palavra!";
         oppStatus.className = "text-xs font-semibold text-emerald-400";
       } else {
-        oppStatus.textContent = state.oppName + " esta pensando...";
+        oppStatus.textContent = state.oppName + " está pensando...";
         oppStatus.className = "text-xs text-zinc-400";
       }
     }
@@ -820,12 +855,12 @@ window.DUELO.DuelMode = (function () {
     const throneBox = qs("#duel-throne-card");
     if (throneBox) {
       if (!state.champion) {
-        throneBox.innerHTML = '<span class="text-xs text-zinc-400">Trono Vazio — A primeira rodada decide quem comeca na lideranca!</span>';
+        throneBox.innerHTML = '<span class="text-xs text-zinc-400">Trono vazio — a primeira rodada decide quem assume a liderança.</span>';
       } else {
         const ch = state.champion;
         throneBox.innerHTML =
           '<div class="flex justify-between items-center">' +
-            '<span class="text-xs font-bold uppercase tracking-wider text-amber-300">No Trono (Lider: ' + ch.ownerName + ')</span>' +
+            '<span class="text-xs font-bold uppercase tracking-wider text-amber-300">No Trono (Líder: ' + ch.ownerName + ')</span>' +
             '<span class="temp-badge tier-' + ch.tier + '">' + ch.tierLabel + '</span>' +
           '</div>' +
           '<div class="champion-word-display">' + ch.displayWord + ' <span class="font-mono text-base text-amber-300">(' + ch.score.toFixed(1) + '%)</span></div>' +
@@ -837,15 +872,19 @@ window.DUELO.DuelMode = (function () {
     const finishBox = qs("#duel-finish-banner");
     if (finishBox) {
       if (state.phase === "finished") {
+        const isTieMatch = state.winnerRole === "tie";
         const iWon = state.winnerRole === state.role;
+        const bannerTitle = isTieMatch ? "Empate Perfeito" : (iWon ? "Vitória no Duelo" : "Fim do Duelo");
+        const bannerDesc = isTieMatch
+          ? "Os dois jogadores acertaram a palavra secreta na mesma rodada!"
+          : (iWon ? "Parabéns! Você acertou a palavra secreta antes de " + state.oppName + "." : state.oppName + " acertou a palavra secreta primeiro.");
+
         finishBox.classList.remove("hidden");
         finishBox.innerHTML =
           '<div class="victory-celebration-card">' +
-            '<span class="editorial-kicker">' + (iWon ? "Vitória no Duelo" : "Fim do Duelo") + '</span>' +
+            '<span class="editorial-kicker">' + bannerTitle + '</span>' +
             '<h3 class="victory-word-heading">' + (state.revealedSecret || "") + '</h3>' +
-            '<p class="text-sm text-zinc-300 mt-1">' +
-              (iWon ? "Parabéns! Você acertou a palavra secreta antes de " + state.oppName + "." : state.oppName + " acertou a palavra secreta primeiro.") +
-            '</p>' +
+            '<p class="text-sm text-zinc-300 mt-1">' + bannerDesc + '</p>' +
             '<div class="mt-4 flex flex-wrap justify-center gap-3">' +
               '<button type="button" id="btn-duel-rematch" class="btn-primary">Jogar Revanche</button>' +
               '<button type="button" id="btn-duel-back-lobby" class="btn-secondary">Voltar ao Início</button>' +
@@ -891,16 +930,21 @@ window.DUELO.DuelMode = (function () {
         histEl.innerHTML = state.history.map(function (h) {
           const leftW = state.role === "host" ? h.hostWord : h.guestWord;
           const rightW = state.role === "host" ? h.guestWord : h.hostWord;
-          const iWonR = h.roundWinnerRole === state.role;
+          const isTieR = h.roundWinnerRole === "tie";
+          const iWonR = !isTieR && h.roundWinnerRole === state.role;
+          const leftCls = isTieR ? "text-amber-300 font-semibold" : (iWonR ? "is-win-word" : "is-lose-word");
+          const rightCls = isTieR ? "text-amber-300 font-semibold" : (!iWonR ? "is-win-word" : "is-lose-word");
+          const outcomeTag = isTieR ? "Empate · Trono: " : "Trono: ";
+
           return (
             '<div class="history-duel-row">' +
               '<span class="history-round-tag">R' + h.round + '</span>' +
               '<div class="history-pair">' +
-                '<span class="' + (iWonR ? "is-win-word" : "is-lose-word") + '">' + state.myName + ': ' + leftW.displayWord + ' (' + leftW.score.toFixed(1) + '%)</span>' +
+                '<span class="' + leftCls + '">' + state.myName + ': ' + leftW.displayWord + ' (' + leftW.score.toFixed(1) + '%)</span>' +
                 '<span class="text-xs text-zinc-500">vs</span>' +
-                '<span class="' + (!iWonR ? "is-win-word" : "is-lose-word") + '">' + state.oppName + ': ' + rightW.displayWord + ' (' + rightW.score.toFixed(1) + '%)</span>' +
+                '<span class="' + rightCls + '">' + state.oppName + ': ' + rightW.displayWord + ' (' + rightW.score.toFixed(1) + '%)</span>' +
               '</div>' +
-              '<span class="history-winner-pill">Trono: ' + h.throneWord + ' (' + h.throneScore.toFixed(0) + '%)</span>' +
+              '<span class="history-winner-pill">' + outcomeTag + h.throneWord + ' (' + h.throneScore.toFixed(0) + '%)</span>' +
             '</div>'
           );
         }).join("");
