@@ -12,17 +12,32 @@
 window.DUELO = window.DUELO || {};
 
 window.DUELO.Engine = (function () {
-  const CACHE_KEY = "duelo_semantic_api_cache_v4";
+  const CACHE_KEY = "duelo_semantic_api_cache_v5";
   let apiCache = {};
+
+  function getVectorDim() {
+    const themes = window.DUELO_DATA && window.DUELO_DATA.THEMES;
+    if (themes) {
+      const keys = Object.keys(themes);
+      for (let i = 0; i < keys.length; i++) {
+        if (themes[keys[i]] && Array.isArray(themes[keys[i]].vec)) {
+          return themes[keys[i]].vec.length;
+        }
+      }
+    }
+    return 24;
+  }
 
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
       apiCache = JSON.parse(raw);
+      const expectedDim = getVectorDim();
       if (window.DUELO_DATA && window.DUELO_DATA.WORDS) {
         Object.keys(apiCache).forEach(function (wKey) {
-          if (!window.DUELO_DATA.WORDS[wKey] && apiCache[wKey].entry) {
-            window.DUELO_DATA.WORDS[wKey] = apiCache[wKey].entry;
+          const cached = apiCache[wKey] && apiCache[wKey].entry;
+          if (!window.DUELO_DATA.WORDS[wKey] && cached && Array.isArray(cached.vec) && cached.vec.length === expectedDim) {
+            window.DUELO_DATA.WORDS[wKey] = cached;
           }
         });
       }
@@ -235,25 +250,31 @@ window.DUELO.Engine = (function () {
 
   function inferFromMorphemes(word) {
     const themes = window.DUELO_DATA.THEMES || {};
+    const vecDim = getVectorDim();
     const rules = [
-      { roots: ["vida", "mort", "alma", "amor", "sent", "ment", "paz", "alegr", "trist", "sonh", "esperan", "temp", "memori", "filosof", "fal"], theme: "vida_filosofia_emocao" },
+      { roots: ["vida", "mort", "alma", "amor", "sent", "ment", "paz", "alegr", "trist", "sonh", "esperan", "saudad", "confianc", "memori", "filosof", "fal", "convers"], theme: "vida_filosofia_emocao" },
       { roots: ["carr", "autom", "veic", "pne", "rod", "motor", "estrad", "caminh", "mot", "biciclet", "onib", "avia", "barc", "navi", "trem"], theme: "transporte_rodas" },
-      { roots: ["cas", "apart", "telh", "port", "janel", "chav", "quart", "cam", "sal", "sof", "cozinh", "banheir", "predi"], theme: "moradia_casa" },
-      { roots: ["arvor", "florest", "flor", "rio", "mar", "prai", "montanh", "sol", "lua", "estrel", "chuv", "nuvem", "vent", "pedr", "terr"], theme: "natureza_clima" },
+      { roots: ["cas", "apart", "telh", "port", "janel", "chav", "quart", "cam", "sal", "sof", "banheir", "predi", "armari", "martel", "escad"], theme: "moradia_casa" },
+      { roots: ["arvor", "florest", "flor", "rio", "mar", "prai", "montanh", "chuv", "nuvem", "vent", "pedr", "terr", "fazend"], theme: "natureza_clima" },
       { roots: ["cachorr", "gat", "caval", "vac", "boi", "lea", "lob", "passar", "peix", "bich", "anim", "dinossaur"], theme: "animais_fauna" },
       { roots: ["comid", "aliment", "pao", "caf", "leit", "queij", "arroz", "feija", "carn", "frang", "pizz", "bol", "chocolat", "frut", "almoc", "jant", "lanch", "refeic", "verdur", "legum", "salad", "oliv", "azeit", "temper", "talher", "restaurant", "manteig", "vinagr", "farinh", "culinari", "cozinheir", "frit"], theme: "alimentacao_bebida" },
-      { roots: ["corp", "cabec", "rosto", "olh", "boc", "dent", "brac", "pern", "coraca", "saud", "medic", "hospital", "remedi", "dorm"], theme: "corpo_saude" },
-      { roots: ["comput", "celul", "intern", "teclad", "telas", "camer", "bateri", "rob", "livr", "escol", "relogi", "cienc"], theme: "tecnologia_ciencias" },
-      { roots: ["futeb", "bol", "gol", "viola", "music", "pian", "film", "jog", "esport"], theme: "esporte_musica_lazer" },
+      { roots: ["corp", "cabec", "rosto", "olh", "boc", "dent", "brac", "pern", "coraca", "saud", "medic", "hospital", "remedi", "dorm", "farmac"], theme: "corpo_saude" },
+      { roots: ["livr", "escol", "cadern", "canet", "lapis", "bibliotec", "autor", "leitur", "estud", "profess", "alun", "revist", "jornal", "dicionari", "poes"], theme: "educacao_leitura" },
+      { roots: ["comput", "celul", "intern", "teclad", "mous", "telas", "camer", "wifi", "bluet", "softwar", "aplicativ", "rob", "senh"], theme: "tecnologia_digital" },
+      { roots: ["cienc", "energ", "eletric", "metal", "ferr", "plast", "geometr", "circul", "quimic", "fisic", "bater", "ima", "fog", "gel"], theme: "ciencia_energia" },
+      { roots: ["futeb", "gol", "jog", "esport", "gamer", "consol", "xadrez", "corrid", "natac", "basquet", "volei", "raquet", "atlet", "academi", "estadi"], theme: "esportes_jogos" },
+      { roots: ["viola", "music", "pian", "guitarr", "flaut", "film", "cinem", "teatr", "pintur", "muse", "fotograf", "danc", "fest", "cant"], theme: "musica_arte_lazer" },
       { roots: ["sapat", "camis", "calc", "roup", "vestid", "chapeu", "ocul"], theme: "vestuario_moda" },
-      { roots: ["cidad", "dinheir", "trabalh", "ruas", "loja", "banc", "polici", "astronaut", "espac", "planet"], theme: "sociedade_cidade" }
+      { roots: ["cidad", "dinheir", "trabalh", "ruas", "loja", "banc", "polici", "justic", "advog", "bombeir", "padari", "supermercad", "pont"], theme: "sociedade_cidade" },
+      { roots: ["astronaut", "espac", "planet", "galaxi", "foguet", "telescop", "univers", "estrel", "lua", "asteroid"], theme: "espaco_universo" },
+      { roots: ["temp", "relogi", "hor", "minut", "seman", "mes", "ano", "calendari", "invern", "vera"], theme: "tempo_espaco" }
     ];
 
     for (let i = 0; i < rules.length; i++) {
       const r = rules[i];
       for (let j = 0; j < r.roots.length; j++) {
         if (word.indexOf(r.roots[j]) !== -1) {
-          const tInfo = themes[r.theme] || { label: "Vocabulario Geral", vec: new Array(16).fill(0.2) };
+          const tInfo = themes[r.theme] || { label: "Vocabulario Geral", vec: new Array(vecDim).fill(0.2) };
           return {
             matched: true,
             entry: {
@@ -271,7 +292,7 @@ window.DUELO.Engine = (function () {
     }
 
     const vec = [];
-    for (let d = 0; d < 16; d++) {
+    for (let d = 0; d < vecDim; d++) {
       const code = word.charCodeAt(d % word.length) || 97;
       vec.push(((code * (d + 5)) % 45) / 100 + 0.05);
     }
@@ -330,8 +351,9 @@ window.DUELO.Engine = (function () {
     const wordsDb = window.DUELO_DATA.WORDS || {};
     const aliases = window.DUELO_DATA.ALIASES || {};
     const tokens = stripAccents(definitionText).split(/\s+/);
+    const vecDim = getVectorDim();
     const matchedKeywords = [];
-    const sumVec = new Array(16).fill(0);
+    const sumVec = new Array(vecDim).fill(0);
     const themeVotes = {};
 
     const stemHints = {
@@ -341,6 +363,7 @@ window.DUELO.Engine = (function () {
       veiculo: "carro", veiculos: "carro", automovel: "carro", rodar: "roda",
       animal: "cachorro", animais: "cachorro", ave: "passaro", aves: "passaro",
       eletronico: "computador", digital: "computador", computador: "computador",
+      literario: "livro", leitura: "livro", escolar: "escola", educacao: "escola",
       medico: "hospital", medicina: "hospital", saude: "saude", corpo: "corpo",
       esportivo: "esporte", esportiva: "esporte", futebol: "futebol",
       linguagem: "fala", comunicar: "fala", comunicacao: "fala", voz: "voz",
@@ -351,7 +374,7 @@ window.DUELO.Engine = (function () {
       if (!wordsDb[tkKey] || matchedKeywords.indexOf(tkKey) !== -1) return;
       matchedKeywords.push(tkKey);
       const tkEntry = wordsDb[tkKey];
-      for (let d = 0; d < 16; d++) {
+      for (let d = 0; d < vecDim; d++) {
         sumVec[d] += tkEntry.vec[d] || 0;
       }
       themeVotes[tkEntry.cluster] = (themeVotes[tkEntry.cluster] || 0) + 1;

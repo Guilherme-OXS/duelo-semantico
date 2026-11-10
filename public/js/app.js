@@ -45,7 +45,13 @@ window.DUELO = window.DUELO || {};
     totalRoundsPlayed: 0
   };
 
-  const SUGGESTIONS = ["carro", "casa", "vida", "tempo", "arvore", "pneu", "futebol", "computador", "paz", "agua"];
+  const SUGGESTION_SETS = [
+    ["carro", "casa", "vida", "tempo", "arvore", "futebol", "computador", "livro", "musica", "agua", "paz", "cachorro"],
+    ["aviao", "escola", "comida", "dinheiro", "hospital", "sol", "planeta", "roupa", "violao", "cinema", "amigo", "fogo"],
+    ["bicicleta", "cozinha", "azeite", "relogio", "oceano", "leao", "celular", "caderno", "justica", "basquete", "cafe", "amor"],
+    ["navio", "biblioteca", "restaurante", "eletricidade", "estrela", "sapato", "martelo", "policia", "xadrez", "saudade", "pao", "flor"]
+  ];
+  let suggestionPage = 0;
 
   function qs(sel) { return document.querySelector(sel); }
   function qsa(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
@@ -273,7 +279,8 @@ window.DUELO = window.DUELO || {};
       usedSet[t.word] = true;
     });
 
-    container.innerHTML = SUGGESTIONS.map(function (w) {
+    const activeList = SUGGESTION_SETS[suggestionPage % SUGGESTION_SETS.length] || SUGGESTION_SETS[0];
+    container.innerHTML = activeList.map(function (w) {
       const isUsed = !!usedSet[w];
       return '<button type="button" data-fill-word="' + w + '" class="suggestion-chip ' + (isUsed ? "is-used" : "") + '"' + (isUsed ? " disabled title=\"Ja testada nesta partida\"" : "") + '>' + w + '</button>';
     }).join("");
@@ -1160,6 +1167,14 @@ window.DUELO = window.DUELO || {};
   }
 
   function bindEvents() {
+    const btnShuffle = qs("#btn-shuffle-suggestions");
+    if (btnShuffle) {
+      btnShuffle.addEventListener("click", function () {
+        suggestionPage = (suggestionPage + 1) % SUGGESTION_SETS.length;
+        renderSuggestionsChips();
+      });
+    }
+
     qsa("[data-main-tab]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         switchMainTab(btn.getAttribute("data-main-tab"));

@@ -22,7 +22,7 @@
   <meta name="twitter:image" content="assets/og-cover.jpg" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="stylesheet" href="css/styles.css?v=9" />
+  <link rel="stylesheet" href="css/styles.css?v=10" />
 </head>
 <body class="app-shell">
 
@@ -68,18 +68,22 @@
         <label for="select-category-filter" class="hidden">Filtrar Tema</label>
         <select id="select-category-filter" class="select-control" aria-label="Escolher Tema da Palavra Secreta">
           <option value="all">Tema: Todas as Categorias</option>
-          <option value="transporte_rodas">Tema: Veículos e Rodovia</option>
-          <option value="moradia_casa">Tema: Casa e Construção</option>
-          <option value="vida_filosofia_emocao">Tema: Vida, Mente e Sentimentos</option>
-          <option value="alimentacao_bebida">Tema: Comidas e Bebidas</option>
-          <option value="natureza_clima">Tema: Natureza e Clima</option>
+          <option value="transporte_rodas">Tema: Veículos e Transporte</option>
+          <option value="moradia_casa">Tema: Casa, Móveis e Construção</option>
+          <option value="alimentacao_bebida">Tema: Comidas, Bebidas e Temperos</option>
+          <option value="educacao_leitura">Tema: Livros, Escola e Leitura</option>
+          <option value="tecnologia_digital">Tema: Tecnologia e Informática</option>
+          <option value="ciencia_energia">Tema: Ciência, Energia e Materiais</option>
+          <option value="esportes_jogos">Tema: Esportes e Jogos</option>
+          <option value="musica_arte_lazer">Tema: Música, Arte e Cinema</option>
+          <option value="natureza_clima">Tema: Natureza, Clima e Geografia</option>
           <option value="animais_fauna">Tema: Animais e Fauna</option>
           <option value="corpo_saude">Tema: Corpo Humano e Saúde</option>
-          <option value="tecnologia_ciencias">Tema: Tecnologia e Ciência</option>
-          <option value="esporte_musica_lazer">Tema: Esportes, Música e Lazer</option>
           <option value="vestuario_moda">Tema: Vestuário e Acessórios</option>
-          <option value="sociedade_cidade">Tema: Cidade e Profissões</option>
-          <option value="tempo_espaco">Tema: Tempo e Universo</option>
+          <option value="sociedade_cidade">Tema: Cidade, Economia e Justiça</option>
+          <option value="tempo_espaco">Tema: Tempo e Calendário</option>
+          <option value="espaco_universo">Tema: Universo e Astronomia</option>
+          <option value="vida_filosofia_emocao">Tema: Vida, Mente e Sentimentos</option>
         </select>
 
         <button type="button" id="btn-open-custom-modal" class="btn-secondary">
@@ -207,6 +211,7 @@
             <div id="solo-suggestions-bar" class="suggestions-bar">
               <span class="text-xs text-zinc-400">Sugestões:</span>
               <div id="quick-suggestions-cluster" class="flex flex-wrap gap-2"></div>
+              <button type="button" id="btn-shuffle-suggestions" class="btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.72rem;" title="Mostrar outras sugestões de palavras">Outras palavras</button>
             </div>
 
             <div id="hint-display-box" class="hint-box hidden"></div>
@@ -409,18 +414,22 @@
         <div>
           <label for="select-custom-cluster" class="text-xs text-zinc-400">Tema da palavra</label>
           <select id="select-custom-cluster" class="select-control w-full mt-1">
-            <option value="transporte_rodas">Veículos, Carros e Rodovia</option>
+            <option value="transporte_rodas">Veículos e Transporte</option>
             <option value="moradia_casa">Casa, Móveis e Construção</option>
-            <option value="vida_filosofia_emocao">Vida, Mente e Sentimentos</option>
-            <option value="alimentacao_bebida">Alimentos, Culinária e Bebidas</option>
-            <option value="natureza_clima">Natureza, Praias e Clima</option>
+            <option value="alimentacao_bebida">Comidas, Bebidas e Temperos</option>
+            <option value="educacao_leitura">Livros, Escola e Leitura</option>
+            <option value="tecnologia_digital">Tecnologia e Informática</option>
+            <option value="ciencia_energia">Ciência, Energia e Materiais</option>
+            <option value="esportes_jogos">Esportes e Jogos</option>
+            <option value="musica_arte_lazer">Música, Arte e Cinema</option>
+            <option value="natureza_clima">Natureza, Clima e Geografia</option>
             <option value="animais_fauna">Animais e Fauna</option>
             <option value="corpo_saude">Corpo Humano e Saúde</option>
-            <option value="tecnologia_ciencias">Tecnologia, Computação e Escola</option>
-            <option value="esporte_musica_lazer">Esportes, Futebol e Música</option>
             <option value="vestuario_moda">Vestuário e Acessórios</option>
-            <option value="sociedade_cidade">Cidade, Dinheiro e Profissões</option>
-            <option value="tempo_espaco">Tempo, Estações e Universo</option>
+            <option value="sociedade_cidade">Cidade, Economia e Justiça</option>
+            <option value="tempo_espaco">Tempo e Calendário</option>
+            <option value="espaco_universo">Universo e Astronomia</option>
+            <option value="vida_filosofia_emocao">Vida, Mente e Sentimentos</option>
           </select>
         </div>
 
@@ -441,13 +450,13 @@
     </div>
   </div>
 
-  <script src="js/vendor/peerjs.min.js?v=9"></script>
-  <script src="js/dictionary-data.js?v=9"></script>
-  <script src="js/semantic-engine.js?v=9"></script>
-  <script src="js/audio.js?v=9"></script>
-  <script src="js/radar-canvas.js?v=9"></script>
-  <script src="js/api-client.js?v=9"></script>
-  <script src="js/duel-mode.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/vendor/peerjs.min.js?v=10"></script>
+  <script src="js/dictionary-data.js?v=10"></script>
+  <script src="js/semantic-engine.js?v=10"></script>
+  <script src="js/audio.js?v=10"></script>
+  <script src="js/radar-canvas.js?v=10"></script>
+  <script src="js/api-client.js?v=10"></script>
+  <script src="js/duel-mode.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>
